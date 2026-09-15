@@ -7,20 +7,40 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-muted: #898781;
+    --border: rgba(255,255,255,0.10);
+    --grid: #2c2c2a;
+    --blue: #3987e5;
+    --orange: #d95926;
+    --aqua: #199e70;
+    --yellow: #c98500;
+    --magenta: #d55181;
+    --violet: #9085e9;
+    --red: #e66767;
+    --good: #0ca30c;
+    --good-text: #3ddc3d;
+    --critical: #d03b3b;
+    --critical-text: #f27272;
+  }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-    background: #eef1f6;
-    color: #14142b;
+    background: var(--page);
+    color: var(--ink);
     line-height: 1.5;
     font-size: 14px;
   }
-  .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 24px 20px 80px; }
 
   /* Topbar */
   .topbar {
-    background: #14142b;
-    color: #fff;
-    border-radius: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
     padding: 22px 28px;
     margin-bottom: 16px;
     display: flex;
@@ -29,158 +49,234 @@
     gap: 20px;
     flex-wrap: wrap;
   }
-  .topbar .eyebrow { font-size: 12px; color: #8b93b8; margin-bottom: 4px; }
-  .topbar h1 { font-size: 21px; font-weight: 700; margin-bottom: 4px; }
-  .topbar .as-of { font-size: 12px; color: #8b93b8; }
-  .topbar .as-of b { color: #cbd5e1; }
+  .topbar .eyebrow { font-size: 12px; color: var(--ink-muted); margin-bottom: 4px; letter-spacing: 0.3px; }
+  .topbar h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+  .topbar .as-of { font-size: 12px; color: var(--ink-muted); }
+  .topbar .as-of b { color: var(--ink-2); }
 
   .upload-block { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
   .upload-btn {
-    background: #fff; color: #14142b; border: none; border-radius: 8px;
+    background: var(--ink); color: #0d0d0d; border: none; border-radius: 8px;
     padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
   }
-  .upload-btn:hover { background: #e2e8f0; }
-  .upload-status { font-size: 11.5px; color: #8b93b8; text-align: right; max-width: 280px; }
-  .upload-status.ok { color: #a7f3d0; }
-  .upload-status.err { color: #fca5a5; }
+  .upload-btn:hover { opacity: 0.85; }
+  .upload-status { font-size: 11.5px; color: var(--ink-muted); text-align: right; max-width: 300px; }
+  .upload-status.ok { color: var(--good-text); }
+  .upload-status.err { color: var(--critical-text); }
   #file-input { display: none; }
 
   /* Empty state */
   .landing {
-    background: #fff; border: 1px dashed #cbd5e1; border-radius: 14px;
-    padding: 60px 30px; text-align: center; color: #64748b;
+    background: var(--surface); border: 1px dashed var(--border); border-radius: 16px;
+    padding: 60px 30px; text-align: center; color: var(--ink-2);
   }
-  .landing h2 { font-size: 17px; color: #14142b; margin-bottom: 8px; }
-  .landing p { font-size: 13.5px; max-width: 480px; margin: 0 auto 18px; }
+  .landing h2 { font-size: 17px; color: var(--ink); margin-bottom: 8px; }
+  .landing p { font-size: 13.5px; max-width: 480px; margin: 0 auto 18px; color: var(--ink-2); }
   .landing .big-upload-btn {
-    background: #14142b; color: #fff; border: none; border-radius: 9px;
+    background: var(--ink); color: #0d0d0d; border: none; border-radius: 9px;
     padding: 12px 22px; font-size: 13.5px; font-weight: 700; cursor: pointer;
   }
-  .landing .hint { font-size: 11.5px; color: #94a3b8; margin-top: 14px; }
+  .landing .hint { font-size: 11.5px; color: var(--ink-muted); margin-top: 14px; }
   .error-box {
-    background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
+    background: rgba(208,59,59,0.12); border: 1px solid rgba(208,59,59,0.4); color: var(--critical-text);
     border-radius: 10px; padding: 14px 18px; font-size: 13px; margin-bottom: 16px; display: none;
   }
 
-  /* Tabs */
-  .tab-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-  .tab-btn {
-    background: #fff; border: 1px solid #d6dce6; color: #475569;
+  /* Main tabs (top-level sections) */
+  .main-tab-bar { display: flex; gap: 24px; border-bottom: 1px solid var(--border); margin-bottom: 20px; flex-wrap: wrap; }
+  .main-tab-btn {
+    background: none; border: none; color: var(--ink-muted); font-size: 14.5px; font-weight: 700;
+    padding: 10px 2px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .main-tab-btn:hover { color: var(--ink-2); }
+  .main-tab-btn.active { color: var(--ink); border-bottom-color: var(--blue); }
+  .main-tab-panel { display: none; }
+  .main-tab-panel.active { display: block; }
+
+  /* Sub tabs (per-city, inside Restaurant Table) */
+  .sub-tab-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .sub-tab-btn {
+    background: var(--surface); border: 1px solid var(--border); color: var(--ink-2);
     padding: 7px 13px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer;
   }
-  .tab-btn .tab-count { color: #94a3b8; font-weight: 500; margin-left: 4px; }
-  .tab-btn.active { background: #14142b; color: #fff; border-color: #14142b; }
-  .tab-btn.active .tab-count { color: #a5b4fc; }
+  .sub-tab-btn .tab-count { color: var(--ink-muted); font-weight: 500; margin-left: 4px; }
+  .sub-tab-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
 
-  /* Summary strip */
-  .summary-strip {
-    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
-    padding: 15px 20px; margin-bottom: 12px;
-    display: flex; gap: 26px; flex-wrap: wrap;
+  /* Cards / sections */
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; margin-bottom: 16px;
   }
-  .summary-stat { display: flex; flex-direction: column; }
-  .summary-stat .big { font-size: 19px; font-weight: 700; color: #14142b; }
-  .summary-stat .small { font-size: 11px; color: #94a3b8; }
+  .card h3 { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+  .card .card-sub { font-size: 12px; color: var(--ink-muted); margin-bottom: 14px; }
+  .sample-tag {
+    font-size: 10px; font-weight: 700; color: var(--yellow); background: rgba(201,133,0,0.15);
+    padding: 2px 8px; border-radius: 20px; margin-left: 8px; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .section-title { font-size: 14px; font-weight: 700; color: var(--ink-2); margin: 22px 0 10px; text-transform: uppercase; letter-spacing: 0.4px; }
 
-  /* Attention banner — the one place we spend the accent color */
-  .attention-banner {
-    border-radius: 10px; padding: 11px 16px; margin-bottom: 12px; font-size: 12.5px;
+  /* Stat tiles */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .stat-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; }
+  .stat-tile .value { font-size: 26px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .stat-tile .label { font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 4px; }
+
+  /* Trend cards */
+  .trend-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px; }
+  .trend-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; }
+  .trend-card .trend-label { font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  .trend-card .value-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .trend-card .value { font-size: 27px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .trend-pill { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 20px; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+  .trend-pill.up { background: rgba(12,163,12,0.15); color: var(--good-text); }
+  .trend-pill.down { background: rgba(208,59,59,0.15); color: var(--critical-text); }
+  .trend-card .subtitle { font-size: 11.5px; color: var(--ink-muted); margin-top: 8px; }
+
+  @media (max-width: 800px) {
+    .trend-grid, .chart-row { grid-template-columns: 1fr; }
   }
-  .attention-banner.hot { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
-  .attention-banner.calm { background: #f8fafc; border: 1px solid #e2e8f0; color: #64748b; }
+
+  /* Charts */
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+  .chart-plot { display: flex; align-items: stretch; gap: 10px; }
+  .chart-yaxis { display: flex; flex-direction: column; justify-content: space-between; font-size: 10.5px; color: var(--ink-muted); text-align: right; width: 34px; font-variant-numeric: tabular-nums; }
+  .chart-bars { flex: 1; display: flex; align-items: flex-end; gap: 14px; border-left: 1px solid var(--grid); padding-left: 10px; overflow-x: auto; }
+  .bar-col-wrap { display: flex; flex-direction: column; align-items: center; min-width: 30px; flex: 1; }
+  .bar-total-label { font-size: 11px; color: var(--ink-2); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+  .bar-col { width: 30px; display: flex; flex-direction: column-reverse; align-items: stretch; cursor: default; }
+  .stack-seg { width: 100%; border-bottom: 2px solid var(--surface); }
+  .bar-col > .stack-seg:last-child { border-radius: 4px 4px 0 0; border-bottom: none; }
+  .bar-col-label { font-size: 10.5px; color: var(--ink-muted); margin-top: 6px; white-space: nowrap; }
+  .chart-legend { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+  .chart-legend-item { font-size: 12px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+  .delta-plot { position: relative; }
+  .delta-baseline { position: absolute; left: 44px; right: 0; height: 1px; background: var(--grid); }
+  .delta-col { position: relative; width: 30px; }
+  .delta-bar { position: absolute; left: 0; right: 0; border-radius: 4px; }
+
+  .hbar-list { display: flex; flex-direction: column; gap: 10px; }
+  .hbar-row { display: grid; grid-template-columns: 160px 1fr 50px; align-items: center; gap: 10px; }
+  .hbar-label { font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hbar-track { height: 10px; background: var(--grid); border-radius: 6px; overflow: hidden; }
+  .hbar-fill { height: 100%; border-radius: 6px; }
+  .hbar-value { font-size: 12.5px; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+  .empty-note { color: var(--ink-muted); font-size: 13px; padding: 20px; text-align: center; }
+
+  #chart-tooltip {
+    position: fixed; z-index: 50; background: #0d0d0d; border: 1px solid var(--border);
+    color: var(--ink); font-size: 12px; padding: 7px 10px; border-radius: 8px; pointer-events: none;
+    display: none; max-width: 260px; box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  }
+
+  /* Attention banner */
+  .attention-banner { border-radius: 10px; padding: 11px 16px; margin-bottom: 12px; font-size: 12.5px; }
+  .attention-banner.hot { background: rgba(208,59,59,0.14); border: 1px solid rgba(208,59,59,0.35); color: var(--critical-text); }
+  .attention-banner.calm { background: var(--surface); border: 1px solid var(--border); color: var(--ink-muted); }
   .attention-banner b { font-weight: 700; }
 
   .data-gap-note {
-    background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 6px;
-    padding: 10px 14px; font-size: 12.5px; color: #92400e; margin-bottom: 12px;
+    background: rgba(201,133,0,0.10); border-left: 4px solid var(--yellow); border-radius: 6px;
+    padding: 10px 14px; font-size: 12.5px; color: var(--yellow); margin-bottom: 12px;
   }
 
   /* Filter bar */
   .filter-bar {
-    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
     padding: 12px 16px; margin-bottom: 12px;
     display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
   }
   .filter-bar input[type="text"] {
-    flex: 1; min-width: 170px; padding: 7px 11px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 13px;
+    flex: 1; min-width: 170px; padding: 7px 11px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--page); color: var(--ink); font-size: 13px;
   }
   .filter-bar input[type="number"] {
-    width: 62px; padding: 7px 7px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 13px;
+    width: 62px; padding: 7px 7px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--page); color: var(--ink); font-size: 13px;
   }
   .chip-toggle {
-    padding: 5px 11px; border-radius: 20px; border: 1px solid #cbd5e1; background: #f8fafc;
-    font-size: 12px; font-weight: 600; color: #475569; cursor: pointer;
+    padding: 5px 11px; border-radius: 20px; border: 1px solid var(--border); background: var(--page);
+    font-size: 12px; font-weight: 600; color: var(--ink-2); cursor: pointer;
   }
-  .chip-toggle.on { background: #14142b; color: #fff; border-color: #14142b; }
-  .filter-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-right: 2px; }
+  .chip-toggle.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .filter-label { font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-right: 2px; }
   .preset-btn {
-    background: #14142b; color: #fff; border: none; font-weight: 700;
+    background: var(--blue); color: #fff; border: none; font-weight: 700;
     padding: 7px 13px; border-radius: 8px; font-size: 12px; cursor: pointer;
   }
-  .clear-btn { background: none; border: none; color: #64748b; font-size: 12px; cursor: pointer; text-decoration: underline; }
-  .result-count { font-size: 12px; color: #64748b; margin-bottom: 8px; display: flex; justify-content: space-between; }
-  .result-count a { color: #1d4ed8; text-decoration: none; cursor: pointer; }
+  .clear-btn { background: none; border: none; color: var(--ink-muted); font-size: 12px; cursor: pointer; text-decoration: underline; }
+  .result-count { font-size: 12px; color: var(--ink-muted); margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .result-count a { color: var(--blue); text-decoration: none; cursor: pointer; }
 
   /* Table */
   .res-table {
-    width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden;
-    border: 1px solid #e2e8f0;
+    width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--border);
   }
   .res-table th {
-    background: #f8fafc; color: #64748b; text-align: left; font-size: 11px; font-weight: 700;
-    padding: 9px 12px; border-bottom: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.3px;
+    background: rgba(255,255,255,0.03); color: var(--ink-muted); text-align: left; font-size: 11px; font-weight: 700;
+    padding: 9px 12px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.3px;
   }
   .res-table th.sortable { cursor: pointer; user-select: none; }
-  .res-table th.sortable:hover { color: #14142b; }
-  .res-table th .arrow { font-size: 9px; margin-left: 2px; color: #cbd5e1; }
-  .res-table th.sorted .arrow { color: #14142b; }
-  .res-table th.group-header {
-    text-align: center; background: #eef1f6; color: #475569; border-bottom: 1px solid #e2e8f0;
-  }
-  .res-table td { padding: 10px 12px; border-bottom: 1px solid #eef1f6; vertical-align: middle; font-size: 13px; }
+  .res-table th.sortable:hover { color: var(--ink); }
+  .res-table th .arrow { font-size: 9px; margin-left: 2px; color: var(--ink-muted); }
+  .res-table th.sorted .arrow { color: var(--ink); }
+  .res-table th.group-header { text-align: center; background: rgba(255,255,255,0.05); color: var(--ink-2); border-bottom: 1px solid var(--border); }
+  .res-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 13px; }
   .res-row { cursor: pointer; border-left: 3px solid transparent; }
-  .res-row:hover td { background: #f8fafc; }
-  .res-row.attention { border-left: 3px solid #ef4444; }
-  .num-cell { text-align: center; font-weight: 600; }
-  .res-name { font-weight: 700; font-size: 13.5px; }
-  .res-sub { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+  .res-row:hover td { background: rgba(255,255,255,0.03); }
+  .res-row.attention { border-left: 3px solid var(--red); }
+  .num-cell { text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .res-name { font-weight: 700; font-size: 13.5px; color: var(--ink); }
+  .res-sub { font-size: 11px; color: var(--ink-muted); margin-top: 1px; }
   .issue-cell { max-width: 210px; }
   .action-cell { max-width: 200px; }
   .action-primary { font-weight: 700; font-size: 12.5px; }
-  .action-secondary { font-size: 10.5px; color: #94a3b8; margin-top: 2px; }
-  .view-link { color: #1d4ed8; font-weight: 700; font-size: 12.5px; }
+  .action-secondary { font-size: 10.5px; color: var(--ink-muted); margin-top: 2px; }
+  .view-link { color: var(--blue); font-weight: 700; font-size: 12.5px; }
+  .muted-note { color: var(--ink-muted); font-size: 11.5px; }
 
   .chip { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 20px; margin: 1px 2px 1px 0; }
-  .priority-badge { font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 6px; background: #f1f5f9; color: #475569; }
-  .priority-badge.p0 { background: #e0e7ff; color: #3730a3; }
-  .priority-badge.p1 { background: #eef2ff; color: #4338ca; }
+  .tier-badge, .priority-badge, .redemption-badge, .mix-chip {
+    font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 6px; display: inline-block;
+  }
+  .priority-badge { background: rgba(137,135,129,0.16); color: var(--ink-2); }
+  .priority-badge.p0 { background: rgba(144,133,233,0.18); color: var(--violet); }
+  .priority-badge.p1 { background: rgba(57,135,229,0.18); color: var(--blue); }
+  .tier-badge.badge-tier-top { background: rgba(57,135,229,0.18); color: var(--blue); }
+  .tier-badge.badge-tier-emerging { background: rgba(25,158,112,0.20); color: #3ddba3; }
+  .redemption-badge.redemption-better { background: rgba(12,163,12,0.15); color: var(--good-text); }
+  .redemption-badge.redemption-worse { background: rgba(208,59,59,0.15); color: var(--critical-text); }
+  .redemption-badge.redemption-neutral { background: rgba(137,135,129,0.16); color: var(--ink-2); }
+  .mix-chip { background: rgba(137,135,129,0.12); color: var(--ink-2); font-weight: 600; margin: 1px 3px 1px 0; }
 
   .drill-row { display: none; }
-  .drill-row td { background: #f8fafc; padding: 0; border-bottom: 2px solid #e2e8f0; }
+  .drill-row td { background: rgba(255,255,255,0.02); padding: 0; border-bottom: 2px solid var(--border); }
   .drill-content { padding: 15px 18px; }
-  .drill-header { font-size: 12px; color: #475569; margin-bottom: 10px; }
-  .inline-tag { background: #eef1f6; padding: 2px 7px; border-radius: 5px; font-weight: 600; }
+  .drill-header { font-size: 12px; color: var(--ink-2); margin-bottom: 10px; }
+  .inline-tag { background: rgba(255,255,255,0.08); padding: 2px 7px; border-radius: 5px; font-weight: 600; color: var(--ink-2); }
 
   .ticket-list { display: flex; flex-direction: column; gap: 8px; }
-  .ticket-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 11px 13px; }
+  .ticket-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 11px 13px; }
   .ticket-card-top { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; }
-  .ticket-id { font-family: 'Cascadia Code', monospace; font-size: 11px; font-weight: 700; color: #334155; }
-  .ticket-date { font-size: 11px; color: #94a3b8; }
+  .ticket-id { font-family: 'Cascadia Code', monospace; font-size: 11px; font-weight: 700; color: var(--ink-2); }
+  .ticket-date { font-size: 11px; color: var(--ink-muted); }
   .ticket-action-label { font-size: 10.5px; font-weight: 700; padding: 3px 7px; border-radius: 20px; }
   .ticket-link { margin-left: auto; font-size: 11.5px; font-weight: 700; color: #fff; background: #4A154B; padding: 4px 10px; border-radius: 6px; text-decoration: none; }
   .ticket-link:hover { background: #611f69; }
-  .ticket-link.disabled { background: #cbd5e1; color: #64748b; }
-  .ticket-summary { font-size: 12.5px; color: #475569; margin-bottom: 7px; }
-  .ticket-meta-row { display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+  .ticket-link.disabled { background: rgba(137,135,129,0.25); color: var(--ink-muted); }
+  .ticket-summary { font-size: 12.5px; color: var(--ink-2); margin-bottom: 7px; }
 
-  .empty-filter-state { text-align: center; padding: 34px; color: #94a3b8; font-size: 13px; }
+  .empty-filter-state { text-align: center; padding: 34px; color: var(--ink-muted); font-size: 13px; }
 
-  footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 22px; }
+  footer { text-align: center; color: var(--ink-muted); font-size: 11px; margin-top: 22px; }
 
   #dashboard-body { display: none; }
 
   @media (max-width: 720px) {
     .res-table { display: block; overflow-x: auto; white-space: nowrap; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
   }
 </style>
 </head>
@@ -204,18 +300,33 @@
 
   <div class="landing" id="landing">
     <h2 id="landing-title">Upload today's export to populate the dashboard</h2>
-    <p id="landing-text">Export the <b>Repeat offender watchlist</b> sheet as Excel (.xlsx) or CSV and drop it in here.</p>
+    <p id="landing-text">Export the workbook with the <b>Repeat offender watchlist</b> sheet (and, going forward, the <b>City summary</b> sheet) as Excel (.xlsx) — or a plain CSV of just the watchlist — and drop it in here.</p>
     <button class="big-upload-btn" onclick="document.getElementById('file-input').click()">Choose file</button>
     <div class="hint" id="landing-hint">Once someone uploads, everyone who opens this link sees the same data automatically.</div>
   </div>
 
   <div id="dashboard-body">
-    <div class="tab-bar" id="tab-bar"></div>
-    <div id="city-sections"></div>
+    <div class="main-tab-bar" id="main-tab-bar">
+      <button class="main-tab-btn" data-tab="overview" onclick="switchMainTab('overview')">Overview</button>
+      <button class="main-tab-btn" data-tab="trend" onclick="switchMainTab('trend')">WoW &middot; MoM &middot; QoQ</button>
+      <button class="main-tab-btn" data-tab="citybreakdown" onclick="switchMainTab('citybreakdown')">City Breakdown</button>
+      <button class="main-tab-btn" data-tab="restaurants" onclick="switchMainTab('restaurants')">Restaurant Table</button>
+    </div>
+
+    <div class="main-tab-panel" id="maintab-overview"></div>
+    <div class="main-tab-panel" id="maintab-trend"></div>
+    <div class="main-tab-panel" id="maintab-citybreakdown"></div>
+    <div class="main-tab-panel" id="maintab-restaurants">
+      <div class="sub-tab-bar" id="sub-tab-bar"></div>
+      <div id="city-sections"></div>
+    </div>
+
     <footer>Repeat Offender Watchlist &middot; ticket links open directly in Slack (#test-call-insights)</footer>
   </div>
 
 </div>
+
+<div id="chart-tooltip"></div>
 
 <script>
 // =====================================================================
@@ -263,27 +374,73 @@ function findHeaderRowIndex(grid) {
 }
 
 // =====================================================================
-// PARSING LOGIC — ported and verified against the source pipeline
+// CATEGORY COLORS — shared between the repeat-offender chips and the
+// City summary sheet's case-split/corrective-action categories. Matched
+// case-insensitively since the two sheets don't always agree on casing
+// (e.g. "Offline Cover Charge" vs "Offline cover charge").
 // =====================================================================
 
-const CAT_COLORS = {
-  'Platform Bypass': ['#fee2e2', '#b91c1c'],
-  'Offline Offer Detected': ['#ffedd5', '#c2410c'],
-  'Offer Denial': ['#fef3c7', '#92400e'],
-  'Competitor Promotion': ['#ede9fe', '#6d28d9'],
-  'Booking Inventory Incorrect': ['#dbeafe', '#1d4ed8'],
-  'Booking Inventory': ['#dbeafe', '#1d4ed8'],
-  'Booking Pax Configuration': ['#dbeafe', '#1d4ed8'],
-  'Offline Cover Charge': ['#dcfce7', '#166534'],
+const CAT_COLOR_MAP = {
+  'platform bypass': '#e66767',
+  'offline offer detected': '#d95926',
+  'offer denial': '#c98500',
+  'competitor promotion': '#9085e9',
+  'booking inventory incorrect': '#3987e5',
+  'booking inventory': '#3987e5',
+  'booking pax configuration': '#3987e5',
+  'offline cover charge': '#199e70',
+  'menu / listing incorrect': '#d55181',
 };
-const DEFAULT_CHIP = ['#f1f5f9', '#475569'];
+const DEFAULT_CAT_COLOR = '#898781';
+
+function catColorHex(name) {
+  return CAT_COLOR_MAP[String(name || '').trim().toLowerCase()] || DEFAULT_CAT_COLOR;
+}
+
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16), g = parseInt(h.substring(2, 4), 16), b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 const BUCKET_COLORS = {
-  no_action:  ['#b91c1c', '#fee2e2'],
-  escalation: ['#c2410c', '#ffedd5'],
-  resolved:   ['#166534', '#dcfce7'],
-  invalid:    ['#64748b', '#f1f5f9'],
+  no_action:  ['#f27272', 'rgba(208,59,59,0.15)'],
+  escalation: ['#e8a15a', 'rgba(217,89,38,0.15)'],
+  resolved:   ['#3ddc3d', 'rgba(12,163,12,0.15)'],
+  invalid:    ['#c3c2b7', 'rgba(137,135,129,0.15)'],
 };
+
+// The 11 cities the source sheets treat as "Top" (named) cities — every other
+// city, plus rows with no city on file, is "Emerging". This list is the exact
+// set of named-city rows in the City summary sheet.
+const TOP_11_CITIES = ['Ahmedabad', 'Bengaluru', 'Chandigarh', 'Chennai', 'Delhi NCR', 'Goa', 'Hyderabad', 'Jaipur', 'Kolkata', 'Mumbai', 'Pune'];
+
+function cityTier(city) {
+  const norm = String(city || '').trim().toLowerCase();
+  return TOP_11_CITIES.some(c => c.toLowerCase() === norm) ? 'top' : 'emerging';
+}
+
+function cityTierBadge(city) {
+  const tier = cityTier(city);
+  const cls = tier === 'top' ? 'badge-tier-top' : 'badge-tier-emerging';
+  const label = String(city || '').trim() || 'Emerging';
+  return `<span class="tier-badge ${cls}">${esc(label)}</span>`;
+}
+
+function redemptionBadge(value) {
+  const raw = (value === null || value === undefined) ? '' : String(value).trim();
+  if (!raw) return '<span class="muted-note">—</span>';
+  const lower = raw.toLowerCase();
+  let cls = 'redemption-neutral';
+  if (lower.includes('better')) cls = 'redemption-better';
+  else if (lower.includes('worse')) cls = 'redemption-worse';
+  return `<span class="redemption-badge ${cls}">${esc(raw)}</span>`;
+}
+
+// =====================================================================
+// PARSING LOGIC — repeat offender watchlist (ported and verified against
+// the source pipeline; unchanged from the original working version).
+// =====================================================================
 
 function splitByTicket(text) {
   if (!text) return { map: {}, order: [] };
@@ -460,19 +617,110 @@ function buildDataset(watchRows, wdbRows) {
 }
 
 // =====================================================================
-// RENDERING
+// PARSING LOGIC — City summary sheet. Three stacked sections (Last week /
+// Last 2 weeks / Last 4 weeks), each introduced by a row whose first cell
+// is exactly that label; that same row carries the real column names.
+// Columns: [0]=city, [1]=# of cases, [2]=Actioned%, [3..10]=8 case-split
+// counts, [11..18]=8 corrective-action-mix percentages. The source sheet
+// has two columns both literally labeled "Restriction applied" (positions
+// 14 & 17) — per instruction, these are summed into one displayed value.
+// =====================================================================
+
+const CITY_SUMMARY_PERIODS = ['Last week', 'Last 2 weeks', 'Last 4 weeks'];
+
+function isBlankRow(r) {
+  return !r || r.every(c => c === null || c === undefined || String(c).trim() === '');
+}
+
+function toPercentOrNull(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  if (s === '' || s === '-') return null;
+  return toNumber(s);
+}
+
+function parseCitySummary(grid) {
+  const result = {};
+  for (let i = 0; i < grid.length; i++) {
+    const row = grid[i];
+    if (!row) continue;
+    const label = String(row[0] || '').trim();
+    const period = CITY_SUMMARY_PERIODS.find(p => p.toLowerCase() === label.toLowerCase());
+    if (!period) continue;
+
+    const splitNames = row.slice(3, 11).map(s => String(s || '').trim());
+    const mixNamesRaw = row.slice(11, 19).map(s => String(s || '').trim());
+    const dupIndices = [];
+    mixNamesRaw.forEach((name, idx) => {
+      if (name.toLowerCase() === 'restriction applied') dupIndices.push(idx);
+    });
+
+    const cities = [];
+    let j = i + 1;
+    while (j < grid.length && isBlankRow(grid[j])) j++;
+    while (j < grid.length && !isBlankRow(grid[j])) {
+      const r = grid[j];
+      const cityName = String(r[0] || '').trim();
+      if (!cityName) break;
+
+      const cases = toNumber(r[1]) || 0;
+      const actionedPct = toPercentOrNull(r[2]);
+
+      const splits = {};
+      splitNames.forEach((name, k) => { splits[name] = toNumber(r[3 + k]) || 0; });
+
+      const mixValues = mixNamesRaw.map((name, k) => toPercentOrNull(r[11 + k]));
+      const mix = {};
+      mixNamesRaw.forEach((name, idx) => {
+        if (dupIndices.includes(idx)) {
+          if (idx !== dupIndices[0]) return; // fold every duplicate into the first slot's key
+          const anyKnown = dupIndices.some(di => mixValues[di] !== null);
+          mix[name] = anyKnown ? dupIndices.reduce((sum, di) => sum + (mixValues[di] || 0), 0) : null;
+        } else {
+          mix[name] = mixValues[idx];
+        }
+      });
+
+      cities.push({ city: cityName, cases, actionedPct, splits, mix });
+      j++;
+    }
+    result[period] = cities;
+  }
+  return result;
+}
+
+function topCategory(splits) {
+  const entries = Object.entries(splits || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  return entries.length ? entries[0][0] : null;
+}
+
+function correctiveMixHtml(row) {
+  if (!row.actionedPct) return '<span class="muted-note">No corrective action data</span>';
+  const entries = Object.entries(row.mix || {}).filter(([, v]) => v !== null && v > 0).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) return '<span class="muted-note">No corrective action data</span>';
+  return entries.map(([name, val]) => `<span class="mix-chip">${Math.round(val * 100)}% ${esc(name)}</span>`).join(' ');
+}
+
+// =====================================================================
+// SHARED STATE
 // =====================================================================
 
 let DATASET = [];
+let CITY_SUMMARY = null; // { 'Last week': [...], 'Last 2 weeks': [...], 'Last 4 weeks': [...] } or null
 let CITY_ORDER = [];
 let ACTIVE_CITY = null;
+let ACTIVE_MAIN_TAB = 'overview';
+let CITY_WINDOW = 'Last week';
+let TIER_FILTER = 'all';
+let CITY_SORT = { key: 'cases', dir: 'desc' };
 let FILTERS = { priority: 'all', status: 'all', minFlags: 0, search: '' };
 let SORT = { key: 'default', dir: 'desc' };
-
 let LAST_KNOWN_SAVE = null;
+let PARSE_WARNINGS = [];
 
-function activateDataset(dataset, meta, preserveViewState) {
+function activateDataset(dataset, citySummary, meta, preserveViewState) {
   DATASET = dataset;
+  CITY_SUMMARY = citySummary || null;
   meta = meta || {};
 
   const citySet = new Set(DATASET.map(d => d.city));
@@ -490,9 +738,15 @@ function activateDataset(dataset, meta, preserveViewState) {
     SORT = { key: 'default', dir: 'desc' };
   }
 
-  buildTabs();
+  buildSubTabs();
   buildCitySections();
   renderCity(CITY_ORDER.find(c => cityIdOf(c) === ACTIVE_CITY) || CITY_ORDER[0]);
+
+  if (!MAIN_TABS_BUILT) { buildMainTabBar(); MAIN_TABS_BUILT = true; }
+  renderOverviewTab();
+  renderTrendTab();
+  renderCityBreakdownTab();
+  switchMainTab(ACTIVE_MAIN_TAB);
 
   document.getElementById('landing').style.display = 'none';
   document.getElementById('dashboard-body').style.display = 'block';
@@ -502,11 +756,25 @@ function activateDataset(dataset, meta, preserveViewState) {
   asOfEl.innerHTML = `Last updated <b>${esc(updatedStr)}</b> &middot; ${DATASET.length} restaurants across ${CITY_ORDER.length} cities`;
 }
 
+let MAIN_TABS_BUILT = false;
+
+function buildMainTabBar() {
+  // Tab buttons are static in the HTML; nothing to build dynamically today,
+  // this hook exists so future tabs can be added without touching bootstrap().
+}
+
+function switchMainTab(tabId) {
+  ACTIVE_MAIN_TAB = tabId;
+  document.querySelectorAll('.main-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+  document.querySelectorAll('.main-tab-panel').forEach(p => p.classList.toggle('active', p.id === 'maintab-' + tabId));
+}
+
 // =====================================================================
 // SHARED PERSISTENCE — a small self-hosted backend (server.js + storage.js)
-// stores the single "current upload" record. Every viewer's tab, including
-// the uploader's, just reads it back from the same place, so everyone on
-// this link sees the same data with no action on their part.
+// stores the single "current upload" record, now carrying the repeat
+// offender dataset alongside the City summary sheet (if the upload had
+// one). Every viewer's tab, including the uploader's, reads it back from
+// the same place, so everyone on this link sees the same data.
 // =====================================================================
 
 async function fetchSharedDataset() {
@@ -515,11 +783,11 @@ async function fetchSharedDataset() {
   return res.json();
 }
 
-async function postSharedDataset(dataset, meta) {
+async function postSharedDataset(dataset, citySummary, meta) {
   const res = await fetch('/api/upload', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ dataset, meta }),
+    body: JSON.stringify({ dataset, citySummary, meta }),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok || !body.ok) {
@@ -547,7 +815,7 @@ function applyPendingUpdate() {
   const payload = window.__pendingUpdate;
   if (!payload) return;
   LAST_KNOWN_SAVE = payload.meta.uploadedAtISO;
-  activateDataset(payload.dataset, payload.meta, true);
+  activateDataset(payload.dataset, payload.citySummary, payload.meta, true);
   const banner = document.getElementById('update-banner');
   if (banner) banner.remove();
 }
@@ -560,7 +828,7 @@ async function bootstrap() {
     const payload = await fetchSharedDataset();
     if (payload && payload.dataset && payload.dataset.length > 0) {
       LAST_KNOWN_SAVE = payload.meta ? payload.meta.uploadedAtISO : null;
-      activateDataset(payload.dataset, payload.meta || {}, false);
+      activateDataset(payload.dataset, payload.citySummary, payload.meta || {}, false);
       statusEl.textContent = `Showing shared data — last updated ${payload.meta.uploadedAtDisplay}`;
       statusEl.className = 'upload-status ok';
     } else {
@@ -580,7 +848,7 @@ async function bootstrap() {
       const dashboardVisible = document.getElementById('dashboard-body').style.display === 'block';
       if (!dashboardVisible) {
         LAST_KNOWN_SAVE = p.meta.uploadedAtISO;
-        activateDataset(p.dataset, p.meta, false);
+        activateDataset(p.dataset, p.citySummary, p.meta, false);
       } else {
         showUpdateBanner(p);
       }
@@ -610,8 +878,6 @@ function toNumber(v) {
   return hadPercent ? f / 100 : f;
 }
 
-let PARSE_WARNINGS = [];
-
 function esc(s) {
   if (s === null || s === undefined) return '';
   return String(s)
@@ -638,16 +904,16 @@ function cityIdOf(city) {
 }
 
 function subcatChips(subcatStr) {
-  if (!subcatStr) return '<span class="chip" style="background:#f1f5f9;color:#94a3b8">No subcategory data</span>';
+  if (!subcatStr) return '<span class="chip" style="background:rgba(137,135,129,0.15);color:var(--ink-muted)">No subcategory data</span>';
   const chips = [];
   subcatStr.split(',').forEach(part => {
     const m = part.trim().match(/^(.+?)\s*x\s*(\d+)/);
     if (!m) return;
     const name = m[1].trim(), n = m[2];
-    const [bg, fg] = CAT_COLORS[name] || DEFAULT_CHIP;
-    chips.push(`<span class="chip" style="background:${bg};color:${fg}">${esc(name)} &times; ${n}</span>`);
+    const hex = catColorHex(name);
+    chips.push(`<span class="chip" style="background:${hexToRgba(hex, 0.16)};color:${hex}">${esc(name)} &times; ${n}</span>`);
   });
-  return chips.length ? chips.join('') : '<span class="chip" style="background:#f1f5f9;color:#94a3b8">Not classified</span>';
+  return chips.length ? chips.join('') : '<span class="chip" style="background:rgba(137,135,129,0.15);color:var(--ink-muted)">Not classified</span>';
 }
 
 function isAttention(d) {
@@ -655,7 +921,7 @@ function isAttention(d) {
 }
 
 function actionCellHtml(d) {
-  const [fg, bg] = BUCKET_COLORS[d.overallStatus];
+  const [fg] = BUCKET_COLORS[d.overallStatus];
   let primaryText;
   if (d.overallStatus === 'no_action') {
     primaryText = 'No corrective action taken';
@@ -726,13 +992,13 @@ function sortRestaurants(list) {
   return arr;
 }
 
-function buildTabs() {
-  const bar = document.getElementById('tab-bar');
+function buildSubTabs() {
+  const bar = document.getElementById('sub-tab-bar');
   bar.innerHTML = CITY_ORDER.map(city => {
     const cid = cityIdOf(city);
     const count = DATASET.filter(d => d.city === city).length;
     const active = cid === ACTIVE_CITY ? ' active' : '';
-    return `<button class="tab-btn${active}" onclick="switchCity('${cid}')">${esc(city)} <span class="tab-count">${count}</span></button>`;
+    return `<button class="sub-tab-btn${active}" onclick="switchCity('${cid}')">${esc(city)} <span class="tab-count">${count}</span></button>`;
   }).join('');
 }
 
@@ -743,7 +1009,7 @@ function buildCitySections() {
     const display = cid === ACTIVE_CITY ? '' : 'display:none;';
     return `
     <section id="city-${cid}" style="${display}">
-      <div class="summary-strip" id="summary-${cid}"></div>
+      <div class="stat-grid" id="summary-${cid}"></div>
       <div id="attention-${cid}"></div>
       <div id="gap-note-${cid}"></div>
       <div class="filter-bar">
@@ -773,10 +1039,13 @@ function buildCitySections() {
           <tr>
             <th rowspan="2" class="sortable" onclick="setSort('priority')" id="th-priority">Priority <span class="arrow">▼</span></th>
             <th rowspan="2">Restaurant</th>
-            <th rowspan="2" class="sortable" onclick="setSort('gmv')" id="th-gmv">GMV contribution to city <span class="arrow">▼</span></th>
-            <th rowspan="2" class="sortable" onclick="setSort('lifetime')" id="th-lifetime">Lifetime call insights cases flagged <span class="arrow">▼</span></th>
-            <th rowspan="2" class="sortable" onclick="setSort('last4')" id="th-last4">Last 4W call insights cases <span class="arrow">▼</span></th>
-            <th rowspan="2" class="sortable" onclick="setSort('last2')" id="th-last2">Last 2 week call insights <span class="arrow">▼</span></th>
+            <th rowspan="2">City</th>
+            <th rowspan="2" class="sortable" onclick="setSort('gmv')" id="th-gmv">GMV% <span class="arrow">▼</span></th>
+            <th rowspan="2" class="sortable" onclick="setSort('lifetime')" id="th-lifetime">Lifetime <span class="arrow">▼</span></th>
+            <th rowspan="2" class="sortable" onclick="setSort('last4')" id="th-last4">4W <span class="arrow">▼</span></th>
+            <th rowspan="2" class="sortable" onclick="setSort('last2')" id="th-last2">2W <span class="arrow">▼</span></th>
+            <th rowspan="2">DOS</th>
+            <th rowspan="2">Redemption</th>
             <th colspan="3" class="group-header">4 week issues breakdown</th>
           </tr>
           <tr>
@@ -803,12 +1072,12 @@ function renderSummary(city) {
   const gmvAgg = items.reduce((s, d) => s + (d.gmv || 0), 0);
 
   document.getElementById('summary-' + cid).innerHTML = `
-    <div class="summary-stat"><span class="big">${nRes}</span><span class="small">repeat offenders</span></div>
-    <div class="summary-stat"><span class="big">${sum4}</span><span class="small">flagged cases, last 4 wks</span></div>
-    <div class="summary-stat"><span class="big">${p0}</span><span class="small">P0 accounts</span></div>
-    <div class="summary-stat"><span class="big">${p1}</span><span class="small">P1 accounts</span></div>
-    <div class="summary-stat"><span class="big">${flagged2w}</span><span class="small">flagged in last 2 wks</span></div>
-    <div class="summary-stat"><span class="big">${fmtPct(gmvAgg)}</span><span class="small">aggregate GMV contribution</span></div>
+    <div class="stat-tile"><div class="value">${nRes}</div><div class="label">Repeat offenders</div></div>
+    <div class="stat-tile"><div class="value">${sum4}</div><div class="label">Flagged cases, last 4 wks</div></div>
+    <div class="stat-tile"><div class="value">${p0}</div><div class="label">P0 accounts</div></div>
+    <div class="stat-tile"><div class="value">${p1}</div><div class="label">P1 accounts</div></div>
+    <div class="stat-tile"><div class="value">${flagged2w}</div><div class="label">Flagged in last 2 wks</div></div>
+    <div class="stat-tile"><div class="value">${fmtPct(gmvAgg)}</div><div class="label">Aggregate GMV contribution</div></div>
   `;
 
   const attention = items.filter(isAttention);
@@ -856,7 +1125,7 @@ function renderRows(city) {
 
   const tbody = document.getElementById('tbody-' + cid);
   let rowsHtml = '';
-  items.forEach((d, idx) => {
+  items.forEach((d) => {
     const rowId = cid + '-' + d.resId;
     const attentionClass = isAttention(d) ? ' attention' : '';
     const ticketBlocks = d.tickets.map(ticketCard).join('');
@@ -867,21 +1136,22 @@ function renderRows(city) {
           <div class="res-name">${esc(d.resName)}</div>
           <div class="res-sub">Res ID ${esc(d.resId)} &middot; KAM ${esc(d.kam || 'Unassigned')}</div>
         </td>
+        <td>${cityTierBadge(d.city)}</td>
         <td class="num-cell">${fmtPct(d.gmv)}</td>
         <td class="num-cell">${fmtNum(d.lifetime)}</td>
         <td class="num-cell">${fmtNum(d.last4)}</td>
         <td class="num-cell">${fmtNum(d.last2)}</td>
+        <td class="num-cell">${fmtNum(d.dos)}</td>
+        <td>${redemptionBadge(d.redemption)}</td>
         <td class="issue-cell">${subcatChips(d.subcatAgg)}</td>
         <td class="action-cell">${actionCellHtml(d)}</td>
         <td><span class="view-link">View ${d.tickets.length} &rsaquo;</span></td>
       </tr>
       <tr class="drill-row" id="drill-${rowId}">
-        <td colspan="9">
+        <td colspan="12">
           <div class="drill-content">
             <div class="drill-header">
               <strong>${esc(d.resName)}</strong> &middot; ${d.tickets.length} ticket${d.tickets.length === 1 ? '' : 's'} in this window
-              &middot; Redemption vs subzone: <span class="inline-tag">${esc(d.redemption || 'N/A')}</span>
-              &middot; DOS cases (2wk): <span class="inline-tag">${fmtNum(d.dos)}</span>
             </div>
             <div class="ticket-list">${ticketBlocks}</div>
           </div>
@@ -921,10 +1191,10 @@ function switchCity(cid) {
   document.querySelectorAll('#city-sections > section').forEach(s => {
     s.style.display = (s.id === 'city-' + cid) ? '' : 'none';
   });
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
   const city = CITY_ORDER.find(c => cityIdOf(c) === cid);
   const idx = CITY_ORDER.findIndex(c => cityIdOf(c) === cid);
-  const btns = document.querySelectorAll('.tab-btn');
+  const btns = document.querySelectorAll('.sub-tab-btn');
   if (btns[idx]) btns[idx].classList.add('active');
   renderCity(city);
 }
@@ -986,6 +1256,373 @@ function toggleDrill(rowId) {
 }
 
 // =====================================================================
+// SHARED TOOLTIP — one floating element, populated on hover of any
+// [data-tooltip] element (chart bars, hbar rows). Delegated at document
+// level so newly-rendered charts don't need their own listeners wired up.
+// =====================================================================
+
+function initTooltip() {
+  const tip = document.getElementById('chart-tooltip');
+  document.addEventListener('mouseover', (e) => {
+    const el = e.target.closest('[data-tooltip]');
+    if (!el) return;
+    tip.textContent = el.dataset.tooltip;
+    tip.style.display = 'block';
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (tip.style.display !== 'block') return;
+    tip.style.left = Math.min(e.clientX + 14, window.innerWidth - 270) + 'px';
+    tip.style.top = (e.clientY + 14) + 'px';
+  });
+  document.addEventListener('mouseout', (e) => {
+    const el = e.target.closest('[data-tooltip]');
+    if (!el) return;
+    tip.style.display = 'none';
+  });
+}
+
+// =====================================================================
+// CHART HELPERS — plain HTML/CSS, no charting library. Thin bars, rounded
+// top corners, a 2px surface-colored gap between stacked segments, a
+// legend for every multi-series chart, and a hover tooltip on every mark.
+// =====================================================================
+
+function renderStackedBarChart(containerId, categories, series, opts) {
+  opts = opts || {};
+  const height = opts.height || 200;
+  const valueFormatter = opts.valueFormatter || (v => String(v));
+  const totals = categories.map((_, i) => series.reduce((s, ser) => s + (ser.values[i] || 0), 0));
+  const max = Math.max(1, ...totals);
+
+  const gridLabels = [1, 0.75, 0.5, 0.25, 0].map(f => `<div>${valueFormatter(Math.round(max * f))}</div>`).join('');
+
+  const barsHtml = categories.map((cat, i) => {
+    const segs = series.map(ser => {
+      const v = ser.values[i] || 0;
+      const segHeight = (v / max * height);
+      return `<div class="stack-seg" style="height:${segHeight}px;background:${ser.color}"></div>`;
+    }).join('');
+    const tooltip = `${cat} — ` + series.map(ser => `${ser.label}: ${valueFormatter(ser.values[i] || 0)}`).join(', ') + `, Total: ${valueFormatter(totals[i])}`;
+    return `<div class="bar-col-wrap">
+      <div class="bar-total-label">${valueFormatter(totals[i])}</div>
+      <div class="bar-col" data-tooltip="${esc(tooltip)}" style="height:${height}px;">${segs}</div>
+      <div class="bar-col-label">${esc(cat)}</div>
+    </div>`;
+  }).join('');
+
+  const legendHtml = series.map(ser => `<span class="chart-legend-item"><span class="legend-dot" style="background:${ser.color}"></span>${esc(ser.label)}</span>`).join('');
+
+  document.getElementById(containerId).innerHTML = `
+    <div class="chart-plot" style="height:${height}px;">
+      <div class="chart-yaxis">${gridLabels}</div>
+      <div class="chart-bars">${barsHtml}</div>
+    </div>
+    <div class="chart-legend">${legendHtml}</div>`;
+}
+
+function renderDeltaBarChart(containerId, categories, values, opts) {
+  opts = opts || {};
+  const height = opts.height || 180;
+  const valueFormatter = opts.valueFormatter || (v => (v > 0 ? '+' : '') + v + '%');
+  const maxAbs = Math.max(1, ...values.map(v => Math.abs(v)));
+  const half = height / 2;
+
+  const barsHtml = categories.map((cat, i) => {
+    const v = values[i];
+    const barH = Math.abs(v) / maxAbs * half;
+    const isUp = v >= 0;
+    const style = isUp
+      ? `height:${barH}px;bottom:${half}px;background:var(--good);`
+      : `height:${barH}px;top:${half}px;background:var(--critical);`;
+    return `<div class="bar-col-wrap" data-tooltip="${esc(cat)}: ${valueFormatter(v)}">
+      <div class="delta-col" style="height:${height}px;"><div class="delta-bar" style="${style}"></div></div>
+      <div class="bar-col-label">${esc(cat)}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById(containerId).innerHTML = `
+    <div class="chart-plot delta-plot" style="height:${height}px;">
+      <div class="delta-baseline" style="top:${half}px;"></div>
+      <div class="chart-bars">${barsHtml}</div>
+    </div>`;
+}
+
+function renderHBarList(containerId, items, opts) {
+  opts = opts || {};
+  const valueFormatter = opts.valueFormatter || (v => String(v));
+  const colorFn = opts.colorFn || (() => 'var(--blue)');
+  const max = Math.max(1, ...items.map(it => it.value));
+  const el = document.getElementById(containerId);
+  if (!items.length) {
+    el.innerHTML = '<div class="empty-note">No data to show yet.</div>';
+    return;
+  }
+  el.innerHTML = `<div class="hbar-list">${items.map(it => {
+    const pct = (it.value / max * 100).toFixed(1);
+    const color = colorFn(it);
+    return `<div class="hbar-row" data-tooltip="${esc(it.label)}: ${valueFormatter(it.value)}">
+      <div class="hbar-label">${esc(it.label)}</div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div class="hbar-value">${valueFormatter(it.value)}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function trendCardHtml(label, value, deltaPct, subtitle) {
+  const isUp = deltaPct >= 0;
+  const arrow = isUp ? '▲' : '▼';
+  const pillClass = isUp ? 'up' : 'down';
+  return `
+    <div class="trend-card">
+      <div class="trend-label">${esc(label)}</div>
+      <div class="value-row">
+        <span class="value">${esc(String(value))}</span>
+        <span class="trend-pill ${pillClass}">${arrow} ${Math.abs(deltaPct).toFixed(1)}%</span>
+      </div>
+      <div class="subtitle">${esc(subtitle)}</div>
+    </div>`;
+}
+
+// =====================================================================
+// SAMPLE / PLACEHOLDER DATA — clearly labeled. No real multi-week series
+// exists yet for these views; swap this generator for the real feed once
+// it's available.
+// =====================================================================
+
+function samplePlaceholderWeeks() {
+  const labels = ['W29', 'W30', 'W31', 'W32', 'W33', 'W34', 'W35', 'W36'];
+  const resolved = [22, 28, 31, 26, 34, 40, 37, 45];
+  const unresolved = [18, 15, 20, 24, 19, 16, 22, 14];
+  const top11 = [28, 30, 33, 31, 36, 39, 41, 44];
+  const emerging = [12, 13, 18, 19, 17, 17, 18, 15];
+  return { labels, resolved, unresolved, top11, emerging };
+}
+
+function samplePlaceholderPeriods(mode) {
+  if (mode === 'month') {
+    return { labels: ['Apr', 'May', 'Jun', 'Jul', 'Aug'], resolved: [98, 121, 140, 135, 128], unresolved: [52, 60, 58, 63, 55], deltas: [4.2, 8.1, -3.5, 5.9, -2.1] };
+  }
+  if (mode === 'quarter') {
+    return { labels: ['Q1', 'Q2', 'Q3', 'Q4'], resolved: [280, 330, 360, 310], unresolved: [140, 150, 165, 130], deltas: [6.5, 18.9, -14.2, 9.3] };
+  }
+  return { labels: ['W33', 'W34', 'W35', 'W36', 'W37'], resolved: [34, 40, 37, 45, 39], unresolved: [19, 16, 22, 14, 18], deltas: [-6.2, 15.3, -8.4, -85.4, 12.1] };
+}
+
+// =====================================================================
+// TAB 1 — OVERVIEW
+// =====================================================================
+
+function computeCompanyMainIssues() {
+  const rows = (CITY_SUMMARY && CITY_SUMMARY['Last 4 weeks']) || [];
+  const totals = {};
+  rows.forEach(r => {
+    Object.entries(r.splits || {}).forEach(([name, val]) => {
+      totals[name] = (totals[name] || 0) + (val || 0);
+    });
+  });
+  return Object.entries(totals).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value }));
+}
+
+function renderOverviewTab() {
+  const items = DATASET;
+  const nRes = items.length;
+  const sum4 = items.reduce((s, d) => s + (d.last4 || 0), 0);
+  const p0 = items.filter(d => d.ulv === 'P0').length;
+  const p1 = items.filter(d => d.ulv === 'P1').length;
+  const flagged2w = items.filter(d => (d.last2 || 0) > 0).length;
+  const gmvAgg = items.reduce((s, d) => s + (d.gmv || 0), 0);
+
+  const sample = samplePlaceholderWeeks();
+
+  const mainIssues = computeCompanyMainIssues();
+  const mainIssuesNote = CITY_SUMMARY
+    ? 'Company-wide, last 4 weeks — from the City summary sheet.'
+    : 'No City summary sheet in the current upload yet — upload the combined workbook to populate this.';
+
+  document.getElementById('maintab-overview').innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="value">${nRes}</div><div class="label">Repeat Offenders</div></div>
+      <div class="stat-tile"><div class="value">${sum4}</div><div class="label">Flagged Cases (4W)</div></div>
+      <div class="stat-tile"><div class="value">${p0}</div><div class="label">P0 Accounts</div></div>
+      <div class="stat-tile"><div class="value">${p1}</div><div class="label">P1 Accounts</div></div>
+      <div class="stat-tile"><div class="value">${flagged2w}</div><div class="label">Flagged Last 2W</div></div>
+      <div class="stat-tile"><div class="value">${fmtPct(gmvAgg)}</div><div class="label">Aggregate GMV%</div></div>
+    </div>
+
+    <div class="trend-grid">
+      ${trendCardHtml('Week-on-week (WoW)', 39, -13.3, 'W36 vs W35 · Sample data')}
+      ${trendCardHtml('Month-on-month (MoM)', 128, -5.2, 'Aug vs Jul · Sample data')}
+      ${trendCardHtml('Quarter-on-quarter (QoQ)', 310, -13.9, '2026-Q4 vs 2026-Q3 · Sample data')}
+    </div>
+
+    <div class="chart-row">
+      <div class="card">
+        <h3>Cases by week — resolved vs unresolved <span class="sample-tag">Sample data</span></h3>
+        <div class="card-sub">Weekly case volume, split by resolution status.</div>
+        <div id="chart-overview-resolved"></div>
+      </div>
+      <div class="card">
+        <h3>Cases by week — Top cities vs Emerging <span class="sample-tag">Sample data</span></h3>
+        <div class="card-sub">Weekly case volume, split by city tier.</div>
+        <div id="chart-overview-tier"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>What are the main issues?</h3>
+      <div class="card-sub">${esc(mainIssuesNote)}</div>
+      <div id="chart-overview-issues"></div>
+    </div>
+  `;
+
+  renderStackedBarChart('chart-overview-resolved', sample.labels, [
+    { key: 'resolved', label: 'Resolved', color: 'var(--good)', values: sample.resolved },
+    { key: 'unresolved', label: 'Unresolved', color: 'var(--critical)', values: sample.unresolved },
+  ]);
+  renderStackedBarChart('chart-overview-tier', sample.labels, [
+    { key: 'top11', label: 'Top 11', color: 'var(--blue)', values: sample.top11 },
+    { key: 'emerging', label: 'Emerging', color: 'var(--aqua)', values: sample.emerging },
+  ]);
+  renderHBarList('chart-overview-issues', mainIssues, { colorFn: it => catColorHex(it.label) });
+}
+
+// =====================================================================
+// TAB 2 — WoW · MoM · QoQ (placeholder)
+// =====================================================================
+
+let TREND_MODE = 'week';
+
+function switchTrendMode(mode) {
+  TREND_MODE = mode;
+  renderTrendTab();
+}
+
+function renderTrendTab() {
+  const data = samplePlaceholderPeriods(TREND_MODE);
+  const modes = [['week', 'Week-on-week'], ['month', 'Month-on-month'], ['quarter', 'Quarter-on-quarter']];
+
+  document.getElementById('maintab-trend').innerHTML = `
+    <div class="filter-bar">
+      ${modes.map(([key, label]) => `<button class="chip-toggle${TREND_MODE === key ? ' on' : ''}" onclick="switchTrendMode('${key}')">${esc(label)}</button>`).join('')}
+      <span class="sample-tag">Sample data — real multi-period series pending</span>
+    </div>
+    <div class="chart-row">
+      <div class="card">
+        <h3>Cases per period, resolved vs unresolved</h3>
+        <div id="chart-trend-stack"></div>
+      </div>
+      <div class="card">
+        <h3>% change vs prior period</h3>
+        <div class="card-sub">Green = grew vs. the previous period, red = declined.</div>
+        <div id="chart-trend-delta"></div>
+      </div>
+    </div>
+  `;
+
+  renderStackedBarChart('chart-trend-stack', data.labels, [
+    { key: 'resolved', label: 'Resolved', color: 'var(--good)', values: data.resolved },
+    { key: 'unresolved', label: 'Unresolved', color: 'var(--critical)', values: data.unresolved },
+  ]);
+  renderDeltaBarChart('chart-trend-delta', data.labels, data.deltas);
+}
+
+// =====================================================================
+// TAB 3 — CITY BREAKDOWN (real data, from the City summary sheet)
+// =====================================================================
+
+function switchCityWindow(period) {
+  CITY_WINDOW = period;
+  renderCityBreakdownTab();
+}
+
+function setTierFilter(tier) {
+  TIER_FILTER = tier;
+  renderCityBreakdownTab();
+}
+
+function setCitySort(key) {
+  if (CITY_SORT.key === key) CITY_SORT.dir = CITY_SORT.dir === 'desc' ? 'asc' : 'desc';
+  else CITY_SORT = { key, dir: 'desc' };
+  renderCityBreakdownTab();
+}
+
+function renderCityBreakdownTab() {
+  const el = document.getElementById('maintab-citybreakdown');
+  if (!CITY_SUMMARY) {
+    el.innerHTML = `<div class="card"><div class="empty-note">No City summary sheet in the current upload — upload the combined workbook (Repeat offender watchlist + City summary, as two sheets) to populate this tab.</div></div>`;
+    return;
+  }
+
+  const periods = ['Last week', 'Last 2 weeks', 'Last 4 weeks'];
+  let rows = CITY_SUMMARY[CITY_WINDOW] || [];
+
+  if (TIER_FILTER !== 'all') {
+    rows = rows.filter(r => cityTier(r.city) === TIER_FILTER);
+  }
+
+  const chartRows = rows.slice().sort((a, b) => b.cases - a.cases);
+
+  const sortKey = CITY_SORT.key;
+  const dir = CITY_SORT.dir === 'asc' ? 1 : -1;
+  const tableRows = rows.slice().sort((a, b) => {
+    if (sortKey === 'city') return dir * a.city.localeCompare(b.city);
+    if (sortKey === 'actionedPct') return dir * ((a.actionedPct || 0) - (b.actionedPct || 0));
+    return dir * ((a.cases || 0) - (b.cases || 0));
+  });
+
+  el.innerHTML = `
+    <div class="filter-bar">
+      <span class="filter-label">Window</span>
+      ${periods.map(p => `<button class="chip-toggle${CITY_WINDOW === p ? ' on' : ''}" onclick="switchCityWindow('${esc(p)}')">${esc(p)}</button>`).join('')}
+    </div>
+
+    <div class="card">
+      <h3>Cases by city</h3>
+      <div class="card-sub">${esc(CITY_WINDOW)} &middot; blue = Top 11 named cities, aqua = Emerging.</div>
+      <div id="chart-city-cases"></div>
+    </div>
+
+    <div class="filter-bar">
+      <span class="filter-label">Show</span>
+      <button class="chip-toggle${TIER_FILTER === 'all' ? ' on' : ''}" onclick="setTierFilter('all')">All</button>
+      <button class="chip-toggle${TIER_FILTER === 'top' ? ' on' : ''}" onclick="setTierFilter('top')">Top cities</button>
+      <button class="chip-toggle${TIER_FILTER === 'emerging' ? ' on' : ''}" onclick="setTierFilter('emerging')">Emerging</button>
+    </div>
+
+    <table class="res-table">
+      <thead>
+        <tr>
+          <th class="sortable" onclick="setCitySort('city')">City <span class="arrow">${CITY_SORT.key === 'city' ? (CITY_SORT.dir === 'asc' ? '▲' : '▼') : '▼'}</span></th>
+          <th class="sortable" onclick="setCitySort('cases')">Total Cases <span class="arrow">${CITY_SORT.key === 'cases' ? (CITY_SORT.dir === 'asc' ? '▲' : '▼') : '▼'}</span></th>
+          <th class="sortable" onclick="setCitySort('actionedPct')">Actioned % <span class="arrow">${CITY_SORT.key === 'actionedPct' ? (CITY_SORT.dir === 'asc' ? '▲' : '▼') : '▼'}</span></th>
+          <th>Main Category</th>
+          <th>Corrective Action Mix</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRows.map(r => {
+          const top = topCategory(r.splits);
+          const topHtml = top
+            ? `<span class="chip" style="background:${hexToRgba(catColorHex(top), 0.16)};color:${catColorHex(top)}">${esc(top)}</span>`
+            : '<span class="muted-note">No cases classified</span>';
+          return `<tr>
+            <td>${cityTierBadge(r.city)}</td>
+            <td class="num-cell">${fmtNum(r.cases)}</td>
+            <td class="num-cell">${r.actionedPct === null ? '<span class="muted-note">—</span>' : fmtPct(r.actionedPct, 0)}</td>
+            <td>${topHtml}</td>
+            <td class="action-cell">${correctiveMixHtml(r)}</td>
+          </tr>`;
+        }).join('') || '<tr><td colspan="5"><div class="empty-filter-state">No cities match this filter.</div></td></tr>'}
+      </tbody>
+    </table>
+  `;
+
+  renderHBarList('chart-city-cases', chartRows.map(r => ({ label: r.city, value: r.cases })), {
+    colorFn: it => cityTier(it.label) === 'top' ? 'var(--blue)' : 'var(--aqua)',
+  });
+}
+
+// =====================================================================
 // FILE HANDLING
 // =====================================================================
 
@@ -998,13 +1635,13 @@ function clearError() {
   document.getElementById('error-box').style.display = 'none';
 }
 
-function gridFromWorkbook(workbook) {
-  const wantedName = 'repeat offender watchlist';
-  const sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === wantedName)
-    || workbook.SheetNames.find(n => n.trim().toLowerCase().startsWith(wantedName));
-  if (!sheetName) {
-    throw new Error('Could not find a "Repeat offender watchlist" sheet in this workbook. Sheets found: ' + workbook.SheetNames.join(', '));
-  }
+function findSheetByName(workbook, wantedName) {
+  const w = wantedName.trim().toLowerCase();
+  return workbook.SheetNames.find(n => n.trim().toLowerCase() === w)
+    || workbook.SheetNames.find(n => n.trim().toLowerCase().startsWith(w));
+}
+
+function gridFromSheet(workbook, sheetName) {
   const sheet = workbook.Sheets[sheetName];
   // Deliberately NOT using raw:false here — that option formats percentage
   // cells (like GMV) as display text (e.g. "0.42%") instead of the real
@@ -1027,24 +1664,32 @@ function handleFile(event) {
 
   reader.onload = async function (e) {
     try {
-      let grid;
+      let watchGrid;
+      let citySummaryGrid = null;
+
       if (isCsv) {
-        grid = parseCsv(e.target.result);
+        watchGrid = parseCsv(e.target.result);
       } else {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-        grid = gridFromWorkbook(workbook);
+        const watchSheetName = findSheetByName(workbook, 'repeat offender watchlist');
+        if (!watchSheetName) {
+          throw new Error('Could not find a "Repeat offender watchlist" sheet in this workbook. Sheets found: ' + workbook.SheetNames.join(', '));
+        }
+        watchGrid = gridFromSheet(workbook, watchSheetName);
+        const summarySheetName = findSheetByName(workbook, 'city summary');
+        if (summarySheetName) citySummaryGrid = gridFromSheet(workbook, summarySheetName);
       }
 
-      if (!grid || grid.length < 3) {
-        showError('This file only has ' + (grid ? grid.length : 0) + ' row(s) — expected the Repeat offender watchlist export with a header row and restaurant rows below it.');
+      if (!watchGrid || watchGrid.length < 3) {
+        showError('This file only has ' + (watchGrid ? watchGrid.length : 0) + ' row(s) — expected the Repeat offender watchlist export with a header row and restaurant rows below it.');
         statusEl.textContent = 'Upload failed — see message above';
         statusEl.className = 'upload-status err';
         return;
       }
 
-      const headerIdx = findHeaderRowIndex(grid);
-      const dataset = buildDataset(grid.slice(headerIdx + 1), []);
+      const headerIdx = findHeaderRowIndex(watchGrid);
+      const dataset = buildDataset(watchGrid.slice(headerIdx + 1), []);
 
       if (dataset.length === 0) {
         showError('The file parsed, but no restaurant rows were found. Double check this is the "Repeat offender watchlist" export, with Res ID in the first column.');
@@ -1053,15 +1698,17 @@ function handleFile(event) {
         return;
       }
 
+      const citySummary = citySummaryGrid ? parseCitySummary(citySummaryGrid) : null;
+
       const meta = buildMeta(new Date());
-      activateDataset(dataset, meta, false);
+      activateDataset(dataset, citySummary, meta, false);
 
       if (PARSE_WARNINGS.length > 0) {
         showError(`Loaded, but ${PARSE_WARNINGS.length} row${PARSE_WARNINGS.length === 1 ? '' : 's'} could not be parsed and were skipped. Details logged to the browser console.`);
       }
 
       statusEl.textContent = 'Saving for everyone…';
-      const saveResult = await postSharedDataset(dataset, meta);
+      const saveResult = await postSharedDataset(dataset, citySummary, meta);
       if (saveResult.ok) {
         LAST_KNOWN_SAVE = meta.uploadedAtISO;
         statusEl.textContent = `Saved for everyone — last updated ${meta.uploadedAtDisplay}`;
@@ -1084,6 +1731,7 @@ function handleFile(event) {
   }
 }
 
+initTooltip();
 bootstrap();
 </script>
 </body>

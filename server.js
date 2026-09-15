@@ -22,12 +22,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/dataset', (req, res) => {
   const store = readStore();
-  if (!store) return res.json({ dataset: null, meta: null });
+  if (!store) return res.json({ dataset: null, citySummary: null, meta: null });
   res.json(store);
 });
 
 app.post('/api/upload', (req, res) => {
-  const { dataset, meta } = req.body || {};
+  const { dataset, citySummary, meta } = req.body || {};
   if (!Array.isArray(dataset) || dataset.length === 0) {
     return res.status(400).json({ ok: false, reason: 'dataset must be a non-empty array' });
   }
@@ -35,7 +35,7 @@ app.post('/api/upload', (req, res) => {
     return res.status(400).json({ ok: false, reason: 'meta is required' });
   }
   try {
-    writeStore({ dataset, meta });
+    writeStore({ dataset, citySummary: citySummary || null, meta });
     res.json({ ok: true, meta });
   } catch (err) {
     console.error('Failed to persist uploaded dataset:', err);
