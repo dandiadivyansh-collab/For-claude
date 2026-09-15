@@ -1596,8 +1596,6 @@ function renderCityBreakdownTab() {
     rows = rows.filter(r => cityTier(r.city) === TIER_FILTER);
   }
 
-  const chartRows = rows.slice().sort((a, b) => b.cases - a.cases);
-
   const sortKey = CITY_SORT.key;
   const dir = CITY_SORT.dir === 'asc' ? 1 : -1;
   const tableRows = rows.slice().sort((a, b) => {
@@ -1612,17 +1610,6 @@ function renderCityBreakdownTab() {
       ${periods.map(p => `<button class="chip-toggle${CITY_WINDOW === p ? ' on' : ''}" onclick="switchCityWindow('${esc(p)}')">${esc(p)}</button>`).join('')}
     </div>
 
-    <div class="card">
-      <h3>Cases by city — issue mix</h3>
-      <div class="card-sub">${esc(CITY_WINDOW)} &middot; colored by issue category &middot; white line = Actioned %.</div>
-      <div id="chart-city-issues"></div>
-    </div>
-    <div class="card">
-      <h3>Corrective action mix by city</h3>
-      <div class="card-sub">${esc(CITY_WINDOW)} &middot; share of actioned cases by corrective action.</div>
-      <div id="chart-city-actions"></div>
-    </div>
-
     <div class="filter-bar">
       <span class="filter-label">Show</span>
       <button class="chip-toggle${TIER_FILTER === 'all' ? ' on' : ''}" onclick="setTierFilter('all')">All</button>
@@ -1635,6 +1622,7 @@ function renderCityBreakdownTab() {
         <tr>
           <th class="sortable" onclick="setCitySort('city')">City <span class="arrow">${CITY_SORT.key === 'city' ? (CITY_SORT.dir === 'asc' ? '▲' : '▼') : '▼'}</span></th>
           <th class="sortable" onclick="setCitySort('cases')">Total Cases <span class="arrow">${CITY_SORT.key === 'cases' ? (CITY_SORT.dir === 'asc' ? '▲' : '▼') : '▼'}</span></th>
+          <th>Issue Split</th>
           <th class="sortable" onclick="setCitySort('actionedPct')">Actioned % <span class="arrow">${CITY_SORT.key === 'actionedPct' ? (CITY_SORT.dir === 'asc' ? '▲' : '▼') : '▼'}</span></th>
           <th>Main Category</th>
           <th>Corrective Action Mix</th>
@@ -1649,74 +1637,21 @@ function renderCityBreakdownTab() {
           return `<tr>
             <td>${cityTierBadge(r.city)}</td>
             <td class="num-cell">${fmtNum(r.cases)}</td>
+            <td class="issue-cell">${issueSplitChips(r.splits)}</td>
             <td class="num-cell">${r.actionedPct === null ? '<span class="muted-note">—</span>' : fmtPct(r.actionedPct, 0)}</td>
             <td>${topHtml}</td>
             <td class="action-cell">${correctiveMixHtml(r)}</td>
           </tr>`;
-        }).join('') || '<tr><td colspan="5"><div class="empty-filter-state">No cities match this filter.</div></td></tr>'}
+        }).join('') || '<tr><td colspan="6"><div class="empty-filter-state">No cities match this filter.</div></td></tr>'}
       </tbody>
     </table>
   `;
-
-  const splitCats = Object.keys((chartRows[0] || {}).splits || {});
-  const mixCats = Object.keys((chartRows[0] || {}).mix || {});
-  renderCityStackedChart('chart-city-issues', chartRows, splitCats, r => r.splits, { showActioned: true, colorFn: catColorHex });
-  renderCityStackedChart('chart-city-actions', chartRows, mixCats, r => Object.fromEntries(Object.entries(r.mix || {}).map(([k, v]) => [k, v || 0])), { isPercent: true, max: 1, colorFn: mixColorHex });
 }
 
-const MIX_COLOR_MAP = {
-  'merchant hygiene check': '#3987e5', 'denied updating offers/covers': '#e66767',
-  'covers / cc / offers updated': '#0ca30c', 'restriction applied': '#c98500',
-  'opened slots': '#199e70', 'merchant unresponsive': '#d03b3b', 'tnc updated': '#9085e9',
-};
-function mixColorHex(name) { return MIX_COLOR_MAP[String(name || '').trim().toLowerCase()] || DEFAULT_CAT_COLOR; }
-
-// Vertical bars, one per city — fixed-width columns in a horizontally
-// scrollable row so a big city (e.g. Delhi NCR) doesn't shrink every other
-// city's bar to a sliver. Real case counts drive height off one shared
-// scale; "Actioned %" is its own per-city pill (not a second axis sharing
-// the bar's scale — that reads as nonsense, e.g. a high % floating above
-// a short bar). Tapping any segment or the bar shows the full breakdown
-// below the chart instead of relying on hover alone.
-function renderCityStackedChart(id, rows, cats, valuesFn, opts) {
-  opts = opts || {};
-  const height = opts.height || 170;
-  const colorFn = opts.colorFn || catColorHex;
-  const max = opts.max || Math.max(1, ...rows.map(r => cats.reduce((s, c) => s + (valuesFn(r)[c] || 0), 0)));
-  const fmt = v => opts.isPercent ? Math.round(v * 100) + '%' : String(v);
-  const barsHtml = rows.map((r, i) => {
-    const vals = valuesFn(r);
-    const total = cats.reduce((s, c) => s + (vals[c] || 0), 0);
-    const segs = cats.filter(c => vals[c] > 0).map(c =>
-      `<div class="stack-seg" style="height:${Math.max(2, vals[c] / max * height)}px;background:${colorFn(c)}" onclick="event.stopPropagation();showCityDetail('${id}',${i})" data-tooltip="${esc(r.city)} — ${esc(c)}: ${fmt(vals[c])}"></div>`
-    ).join('');
-    let pill = '';
-    if (opts.showActioned) {
-      const a = r.actionedPct;
-      const cls = a === null ? '' : (a >= 0.5 ? 'good' : 'bad');
-      pill = `<div class="actioned-pill ${cls}">${a === null ? 'No action data' : Math.round(a * 100) + '% actioned'}</div>`;
-    }
-    return `<div class="bar-col-wrap fixed" onclick="showCityDetail('${id}',${i})">
-      <div class="bar-total-label">${fmt(total)}</div>
-      <div class="bar-col" style="height:${height}px;">${segs}</div>
-      <div class="bar-col-label">${esc(r.city)}</div>
-      ${pill}
-    </div>`;
-  }).join('');
-  const usedCats = cats.filter(c => rows.some(r => (valuesFn(r)[c] || 0) > 0));
-  const legend = usedCats.map(c => `<span class="chart-legend-item"><span class="legend-dot" style="background:${colorFn(c)}"></span>${esc(c)}</span>`).join('');
-  document.getElementById(id).innerHTML = `<div class="chart-bars scrollable">${barsHtml}</div><div class="chart-legend">${legend}</div><div class="city-detail" id="${id}-detail">Tap a city's bar for its full breakdown.</div>`;
-  window['__cityChartData_' + id] = { rows, cats, valuesFn, fmt };
-}
-
-function showCityDetail(id, i) {
-  const d = window['__cityChartData_' + id];
-  if (!d) return;
-  const r = d.rows[i];
-  const vals = d.valuesFn(r);
-  const parts = d.cats.filter(c => vals[c] > 0).sort((a, b) => vals[b] - vals[a]).map(c => `${esc(c)}: ${d.fmt(vals[c])}`);
-  const actionedStr = r.actionedPct === null ? 'no corrective action data' : `${Math.round(r.actionedPct * 100)}% actioned`;
-  document.getElementById(id + '-detail').innerHTML = `<b>${esc(r.city)}</b> &middot; ${parts.join(' &middot; ') || 'no cases classified'} &middot; ${actionedStr}`;
+function issueSplitChips(splits) {
+  const entries = Object.entries(splits || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) return '<span class="muted-note">No cases classified</span>';
+  return entries.map(([name, v]) => `<span class="chip" style="background:${hexToRgba(catColorHex(name), 0.16)};color:${catColorHex(name)}">${esc(name)} &times; ${v}</span>`).join('');
 }
 
 // =====================================================================
