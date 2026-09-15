@@ -145,8 +145,14 @@
   .bar-col-wrap { display: flex; flex-direction: column; align-items: center; min-width: 30px; flex: 1; }
   .bar-total-label { font-size: 11px; color: var(--ink-2); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
   .bar-col { width: 30px; display: flex; flex-direction: column-reverse; align-items: stretch; cursor: default; }
-  .stack-seg { width: 100%; border-bottom: 2px solid var(--surface); }
+  .stack-seg { width: 100%; border-bottom: 2px solid var(--surface); cursor: pointer; }
   .bar-col > .stack-seg:last-child { border-radius: 4px 4px 0 0; border-bottom: none; }
+  .bar-col-wrap.fixed { flex: 0 0 58px; min-width: 58px; }
+  .chart-bars.scrollable { justify-content: flex-start; }
+  .actioned-pill { font-size: 10px; margin-top: 5px; padding: 2px 7px; border-radius: 10px; background: rgba(137,135,129,0.15); color: var(--ink-2); white-space: nowrap; }
+  .actioned-pill.good { background: rgba(12,163,12,0.15); color: var(--good-text); }
+  .actioned-pill.bad { background: rgba(208,59,59,0.15); color: var(--critical-text); }
+  .city-detail { margin-top: 12px; font-size: 12.5px; color: var(--ink-2); min-height: 18px; padding-top: 10px; border-top: 1px solid var(--border); }
   .bar-col-label { font-size: 10.5px; color: var(--ink-muted); margin-top: 6px; white-space: nowrap; }
   .chart-legend { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
   .chart-legend-item { font-size: 12px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
@@ -1654,37 +1660,63 @@ function renderCityBreakdownTab() {
 
   const splitCats = Object.keys((chartRows[0] || {}).splits || {});
   const mixCats = Object.keys((chartRows[0] || {}).mix || {});
-  renderCityStackedChart('chart-city-issues', chartRows, splitCats, r => r.splits, { showLine: true });
-  renderCityStackedChart('chart-city-actions', chartRows, mixCats, r => Object.fromEntries(Object.entries(r.mix || {}).map(([k, v]) => [k, v || 0])), { isPercent: true, max: 1 });
+  renderCityStackedChart('chart-city-issues', chartRows, splitCats, r => r.splits, { showActioned: true, colorFn: catColorHex });
+  renderCityStackedChart('chart-city-actions', chartRows, mixCats, r => Object.fromEntries(Object.entries(r.mix || {}).map(([k, v]) => [k, v || 0])), { isPercent: true, max: 1, colorFn: mixColorHex });
 }
 
-// Vertical bars, one per city, split into colored segments per category —
-// used for both the issue-mix chart (with an Actioned% line overlay) and
-// the corrective-action-mix chart (percentages, so a fixed 0-100% scale).
+const MIX_COLOR_MAP = {
+  'merchant hygiene check': '#3987e5', 'denied updating offers/covers': '#e66767',
+  'covers / cc / offers updated': '#0ca30c', 'restriction applied': '#c98500',
+  'opened slots': '#199e70', 'merchant unresponsive': '#d03b3b', 'tnc updated': '#9085e9',
+};
+function mixColorHex(name) { return MIX_COLOR_MAP[String(name || '').trim().toLowerCase()] || DEFAULT_CAT_COLOR; }
+
+// Vertical bars, one per city — fixed-width columns in a horizontally
+// scrollable row so a big city (e.g. Delhi NCR) doesn't shrink every other
+// city's bar to a sliver. Real case counts drive height off one shared
+// scale; "Actioned %" is its own per-city pill (not a second axis sharing
+// the bar's scale — that reads as nonsense, e.g. a high % floating above
+// a short bar). Tapping any segment or the bar shows the full breakdown
+// below the chart instead of relying on hover alone.
 function renderCityStackedChart(id, rows, cats, valuesFn, opts) {
   opts = opts || {};
-  const height = opts.height || 200;
+  const height = opts.height || 170;
+  const colorFn = opts.colorFn || catColorHex;
   const max = opts.max || Math.max(1, ...rows.map(r => cats.reduce((s, c) => s + (valuesFn(r)[c] || 0), 0)));
   const fmt = v => opts.isPercent ? Math.round(v * 100) + '%' : String(v);
   const barsHtml = rows.map((r, i) => {
     const vals = valuesFn(r);
     const total = cats.reduce((s, c) => s + (vals[c] || 0), 0);
     const segs = cats.filter(c => vals[c] > 0).map(c =>
-      `<div class="stack-seg" style="height:${(vals[c] / max * height)}px;background:${catColorHex(c)}" data-tooltip="${esc(r.city)} — ${esc(c)}: ${fmt(vals[c])}"></div>`
+      `<div class="stack-seg" style="height:${Math.max(2, vals[c] / max * height)}px;background:${colorFn(c)}" onclick="event.stopPropagation();showCityDetail('${id}',${i})" data-tooltip="${esc(r.city)} — ${esc(c)}: ${fmt(vals[c])}"></div>`
     ).join('');
-    return `<div class="bar-col-wrap"><div class="bar-total-label">${fmt(total)}</div><div class="bar-col" style="height:${height}px;">${segs}</div><div class="bar-col-label">${esc(r.city)}</div></div>`;
+    let pill = '';
+    if (opts.showActioned) {
+      const a = r.actionedPct;
+      const cls = a === null ? '' : (a >= 0.5 ? 'good' : 'bad');
+      pill = `<div class="actioned-pill ${cls}">${a === null ? 'No action data' : Math.round(a * 100) + '% actioned'}</div>`;
+    }
+    return `<div class="bar-col-wrap fixed" onclick="showCityDetail('${id}',${i})">
+      <div class="bar-total-label">${fmt(total)}</div>
+      <div class="bar-col" style="height:${height}px;">${segs}</div>
+      <div class="bar-col-label">${esc(r.city)}</div>
+      ${pill}
+    </div>`;
   }).join('');
   const usedCats = cats.filter(c => rows.some(r => (valuesFn(r)[c] || 0) > 0));
-  let legend = usedCats.map(c => `<span class="chart-legend-item"><span class="legend-dot" style="background:${catColorHex(c)}"></span>${esc(c)}</span>`).join('');
-  let lineHtml = '';
-  if (opts.showLine) {
-    const pt = i => `${((i + 0.5) / rows.length * 100).toFixed(2)},${(100 - (rows[i].actionedPct || 0) * 100).toFixed(2)}`;
-    const pts = rows.map((r, i) => pt(i)).join(' ');
-    const dots = rows.map((r, i) => { const [x, y] = pt(i).split(','); return `<circle cx="${x}" cy="${y}" r="1.4" fill="#fff"/>`; }).join('');
-    lineHtml = `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;left:0;right:0;top:0;height:${height}px;width:100%;pointer-events:none;"><polyline points="${pts}" fill="none" stroke="#fff" stroke-width="1.5" vector-effect="non-scaling-stroke"/>${dots}</svg>`;
-    legend += `<span class="chart-legend-item"><span class="legend-dot" style="background:#fff"></span>Actioned %</span>`;
-  }
-  document.getElementById(id).innerHTML = `<div class="chart-plot" style="height:${height}px;position:relative;"><div class="chart-bars" style="border-left:none;padding-left:0;">${barsHtml}</div>${lineHtml}</div><div class="chart-legend">${legend}</div>`;
+  const legend = usedCats.map(c => `<span class="chart-legend-item"><span class="legend-dot" style="background:${colorFn(c)}"></span>${esc(c)}</span>`).join('');
+  document.getElementById(id).innerHTML = `<div class="chart-bars scrollable">${barsHtml}</div><div class="chart-legend">${legend}</div><div class="city-detail" id="${id}-detail">Tap a city's bar for its full breakdown.</div>`;
+  window['__cityChartData_' + id] = { rows, cats, valuesFn, fmt };
+}
+
+function showCityDetail(id, i) {
+  const d = window['__cityChartData_' + id];
+  if (!d) return;
+  const r = d.rows[i];
+  const vals = d.valuesFn(r);
+  const parts = d.cats.filter(c => vals[c] > 0).sort((a, b) => vals[b] - vals[a]).map(c => `${esc(c)}: ${d.fmt(vals[c])}`);
+  const actionedStr = r.actionedPct === null ? 'no corrective action data' : `${Math.round(r.actionedPct * 100)}% actioned`;
+  document.getElementById(id + '-detail').innerHTML = `<b>${esc(r.city)}</b> &middot; ${parts.join(' &middot; ') || 'no cases classified'} &middot; ${actionedStr}`;
 }
 
 // =====================================================================
