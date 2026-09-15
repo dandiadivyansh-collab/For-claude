@@ -22,24 +22,44 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/dataset', (req, res) => {
   const store = readStore();
-  if (!store) return res.json({ dataset: null, citySummary: null, meta: null });
-  res.json(store);
+  res.json(store || { dataset: null, datasetMeta: null, citySummary: null, citySummaryMeta: null });
 });
 
+// The repeat-offender watchlist and the City summary sheet are uploaded as
+// two independent files (two separate CSVs), each at its own pace, so this
+// merges whichever field is present into the existing record rather than
+// requiring both every time.
 app.post('/api/upload', (req, res) => {
   const { dataset, citySummary, meta } = req.body || {};
-  if (!Array.isArray(dataset) || dataset.length === 0) {
+  const hasDataset = dataset !== undefined;
+  const hasCitySummary = citySummary !== undefined;
+
+  if (!hasDataset && !hasCitySummary) {
+    return res.status(400).json({ ok: false, reason: 'request must include dataset and/or citySummary' });
+  }
+  if (hasDataset && (!Array.isArray(dataset) || dataset.length === 0)) {
     return res.status(400).json({ ok: false, reason: 'dataset must be a non-empty array' });
+  }
+  if (hasCitySummary && (typeof citySummary !== 'object' || citySummary === null)) {
+    return res.status(400).json({ ok: false, reason: 'citySummary must be an object' });
   }
   if (!meta || typeof meta !== 'object') {
     return res.status(400).json({ ok: false, reason: 'meta is required' });
   }
+
   try {
-    writeStore({ dataset, citySummary: citySummary || null, meta });
+    const existing = readStore() || {};
+    const next = {
+      dataset: hasDataset ? dataset : (existing.dataset || null),
+      datasetMeta: hasDataset ? meta : (existing.datasetMeta || null),
+      citySummary: hasCitySummary ? citySummary : (existing.citySummary || null),
+      citySummaryMeta: hasCitySummary ? meta : (existing.citySummaryMeta || null),
+    };
+    writeStore(next);
     res.json({ ok: true, meta });
   } catch (err) {
-    console.error('Failed to persist uploaded dataset:', err);
-    res.status(500).json({ ok: false, reason: 'server could not save the dataset' });
+    console.error('Failed to persist uploaded data:', err);
+    res.status(500).json({ ok: false, reason: 'server could not save the data' });
   }
 });
 

@@ -60,6 +60,7 @@
     padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
   }
   .upload-btn:hover { opacity: 0.85; }
+  .upload-btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--ink-2); }
   .upload-status { font-size: 11.5px; color: var(--ink-muted); text-align: right; max-width: 300px; }
   .upload-status.ok { color: var(--good-text); }
   .upload-status.err { color: var(--critical-text); }
@@ -290,8 +291,12 @@
       <div class="as-of" id="as-of-line">Loading latest data…</div>
     </div>
     <div class="upload-block">
-      <button class="upload-btn" onclick="document.getElementById('file-input').click()">Upload today's export</button>
-      <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onchange="handleFile(event)">
+      <div style="display:flex; gap:8px;">
+        <button class="upload-btn" onclick="document.getElementById('file-input').click()">Upload repeat offenders</button>
+        <button class="upload-btn secondary" onclick="document.getElementById('file-input-citysummary').click()">Upload city summary</button>
+      </div>
+      <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onchange="handleWatchlistFile(event)">
+      <input type="file" id="file-input-citysummary" accept=".xlsx,.xls,.csv" onchange="handleCitySummaryFile(event)">
       <div class="upload-status" id="upload-status">Checking for shared data…</div>
     </div>
   </div>
@@ -707,6 +712,8 @@ function correctiveMixHtml(row) {
 
 let DATASET = [];
 let CITY_SUMMARY = null; // { 'Last week': [...], 'Last 2 weeks': [...], 'Last 4 weeks': [...] } or null
+let DATASET_META = null;
+let CITY_SUMMARY_META = null;
 let CITY_ORDER = [];
 let ACTIVE_CITY = null;
 let ACTIVE_MAIN_TAB = 'overview';
@@ -715,13 +722,18 @@ let TIER_FILTER = 'all';
 let CITY_SORT = { key: 'cases', dir: 'desc' };
 let FILTERS = { priority: 'all', status: 'all', minFlags: 0, search: '' };
 let SORT = { key: 'default', dir: 'desc' };
-let LAST_KNOWN_SAVE = null;
+let LAST_DATASET_SAVE = null;
+let LAST_CITY_SUMMARY_SAVE = null;
 let PARSE_WARNINGS = [];
+let MAIN_TABS_BUILT = false;
 
-function activateDataset(dataset, citySummary, meta, preserveViewState) {
+// Repeat-offender watchlist and City summary now arrive as two independent
+// uploads (two separate CSVs) rather than two sheets in one workbook, so
+// each can update on its own without wiping out the other.
+
+function applyWatchlistUpdate(dataset, meta, preserveViewState) {
   DATASET = dataset;
-  CITY_SUMMARY = citySummary || null;
-  meta = meta || {};
+  DATASET_META = meta || null;
 
   const citySet = new Set(DATASET.map(d => d.city));
   const newCityOrder = Array.from(citySet).sort((a, b) => {
@@ -742,7 +754,7 @@ function activateDataset(dataset, citySummary, meta, preserveViewState) {
   buildCitySections();
   renderCity(CITY_ORDER.find(c => cityIdOf(c) === ACTIVE_CITY) || CITY_ORDER[0]);
 
-  if (!MAIN_TABS_BUILT) { buildMainTabBar(); MAIN_TABS_BUILT = true; }
+  if (!MAIN_TABS_BUILT) { MAIN_TABS_BUILT = true; }
   renderOverviewTab();
   renderTrendTab();
   renderCityBreakdownTab();
@@ -750,17 +762,28 @@ function activateDataset(dataset, citySummary, meta, preserveViewState) {
 
   document.getElementById('landing').style.display = 'none';
   document.getElementById('dashboard-body').style.display = 'block';
-
-  const asOfEl = document.getElementById('as-of-line');
-  const updatedStr = meta.uploadedAtDisplay || 'unknown time';
-  asOfEl.innerHTML = `Last updated <b>${esc(updatedStr)}</b> &middot; ${DATASET.length} restaurants across ${CITY_ORDER.length} cities`;
+  updateAsOfLine();
 }
 
-let MAIN_TABS_BUILT = false;
+function applyCitySummaryUpdate(citySummary, meta) {
+  CITY_SUMMARY = citySummary || null;
+  CITY_SUMMARY_META = meta || null;
+  if (DATASET.length) {
+    renderOverviewTab();
+    renderCityBreakdownTab();
+  }
+  updateAsOfLine();
+}
 
-function buildMainTabBar() {
-  // Tab buttons are static in the HTML; nothing to build dynamically today,
-  // this hook exists so future tabs can be added without touching bootstrap().
+function updateAsOfLine() {
+  const asOfEl = document.getElementById('as-of-line');
+  if (!DATASET.length) {
+    asOfEl.textContent = CITY_SUMMARY ? 'City summary uploaded — waiting on the repeat offender watchlist too' : 'No data uploaded yet';
+    return;
+  }
+  const parts = [`Watchlist updated <b>${esc(DATASET_META ? DATASET_META.uploadedAtDisplay : 'unknown time')}</b>`];
+  if (CITY_SUMMARY_META) parts.push(`City summary updated <b>${esc(CITY_SUMMARY_META.uploadedAtDisplay)}</b>`);
+  asOfEl.innerHTML = parts.join(' &middot; ') + ` &middot; ${DATASET.length} restaurants across ${CITY_ORDER.length} cities`;
 }
 
 function switchMainTab(tabId) {
@@ -771,10 +794,10 @@ function switchMainTab(tabId) {
 
 // =====================================================================
 // SHARED PERSISTENCE — a small self-hosted backend (server.js + storage.js)
-// stores the single "current upload" record, now carrying the repeat
-// offender dataset alongside the City summary sheet (if the upload had
-// one). Every viewer's tab, including the uploader's, reads it back from
-// the same place, so everyone on this link sees the same data.
+// stores one record with the repeat-offender dataset and the City summary
+// data as two independently-updatable fields. Every viewer's tab, including
+// the uploader's, reads it back from the same place, so everyone on this
+// link sees the same data with no action of their own.
 // =====================================================================
 
 async function fetchSharedDataset() {
@@ -783,11 +806,11 @@ async function fetchSharedDataset() {
   return res.json();
 }
 
-async function postSharedDataset(dataset, citySummary, meta) {
+async function postSharedUpdate(partial) {
   const res = await fetch('/api/upload', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ dataset, citySummary, meta }),
+    body: JSON.stringify(partial),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok || !body.ok) {
@@ -804,8 +827,7 @@ function showUpdateBanner(payload) {
   banner.style.position = 'sticky';
   banner.style.top = '0';
   banner.style.zIndex = '10';
-  const when = (payload.meta && payload.meta.uploadedAtDisplay) || 'just now';
-  banner.innerHTML = `<b>Newer data is available</b> (uploaded ${esc(when)}) — <a style="cursor:pointer;text-decoration:underline;" onclick="applyPendingUpdate()">refresh now</a>`;
+  banner.innerHTML = `<b>Newer data is available</b> — <a style="cursor:pointer;text-decoration:underline;" onclick="applyPendingUpdate()">refresh now</a>`;
   const wrap = document.querySelector('.wrap');
   wrap.insertBefore(banner, wrap.firstChild);
   window.__pendingUpdate = payload;
@@ -814,8 +836,10 @@ function showUpdateBanner(payload) {
 function applyPendingUpdate() {
   const payload = window.__pendingUpdate;
   if (!payload) return;
-  LAST_KNOWN_SAVE = payload.meta.uploadedAtISO;
-  activateDataset(payload.dataset, payload.citySummary, payload.meta, true);
+  if (payload.datasetMeta) LAST_DATASET_SAVE = payload.datasetMeta.uploadedAtISO;
+  if (payload.citySummaryMeta) LAST_CITY_SUMMARY_SAVE = payload.citySummaryMeta.uploadedAtISO;
+  if (payload.citySummary) applyCitySummaryUpdate(payload.citySummary, payload.citySummaryMeta);
+  if (payload.dataset && payload.dataset.length) applyWatchlistUpdate(payload.dataset, payload.datasetMeta, true);
   const banner = document.getElementById('update-banner');
   if (banner) banner.remove();
 }
@@ -826,14 +850,16 @@ async function bootstrap() {
   const statusEl = document.getElementById('upload-status');
   try {
     const payload = await fetchSharedDataset();
-    if (payload && payload.dataset && payload.dataset.length > 0) {
-      LAST_KNOWN_SAVE = payload.meta ? payload.meta.uploadedAtISO : null;
-      activateDataset(payload.dataset, payload.citySummary, payload.meta || {}, false);
-      statusEl.textContent = `Showing shared data — last updated ${payload.meta.uploadedAtDisplay}`;
+    LAST_DATASET_SAVE = payload.datasetMeta ? payload.datasetMeta.uploadedAtISO : null;
+    LAST_CITY_SUMMARY_SAVE = payload.citySummaryMeta ? payload.citySummaryMeta.uploadedAtISO : null;
+    if (payload.citySummary) applyCitySummaryUpdate(payload.citySummary, payload.citySummaryMeta);
+    if (payload.dataset && payload.dataset.length > 0) {
+      applyWatchlistUpdate(payload.dataset, payload.datasetMeta, false);
+      statusEl.textContent = `Showing shared data — watchlist updated ${payload.datasetMeta.uploadedAtDisplay}`;
       statusEl.className = 'upload-status ok';
     } else {
-      document.getElementById('as-of-line').textContent = 'No data uploaded yet';
-      statusEl.textContent = 'Nothing uploaded yet — upload the first export to populate this for everyone';
+      updateAsOfLine();
+      statusEl.textContent = 'Nothing uploaded yet — upload the repeat offender watchlist to populate this for everyone';
     }
   } catch (err) {
     document.getElementById('as-of-line').textContent = 'Could not reach the dashboard server';
@@ -844,11 +870,15 @@ async function bootstrap() {
   setInterval(async () => {
     try {
       const p = await fetchSharedDataset();
-      if (!p || !p.meta || p.meta.uploadedAtISO === LAST_KNOWN_SAVE) return;
+      const datasetChanged = p.datasetMeta && p.datasetMeta.uploadedAtISO !== LAST_DATASET_SAVE;
+      const citySummaryChanged = p.citySummaryMeta && p.citySummaryMeta.uploadedAtISO !== LAST_CITY_SUMMARY_SAVE;
+      if (!datasetChanged && !citySummaryChanged) return;
       const dashboardVisible = document.getElementById('dashboard-body').style.display === 'block';
       if (!dashboardVisible) {
-        LAST_KNOWN_SAVE = p.meta.uploadedAtISO;
-        activateDataset(p.dataset, p.citySummary, p.meta, false);
+        LAST_DATASET_SAVE = p.datasetMeta ? p.datasetMeta.uploadedAtISO : LAST_DATASET_SAVE;
+        LAST_CITY_SUMMARY_SAVE = p.citySummaryMeta ? p.citySummaryMeta.uploadedAtISO : LAST_CITY_SUMMARY_SAVE;
+        if (p.citySummary) applyCitySummaryUpdate(p.citySummary, p.citySummaryMeta);
+        if (p.dataset && p.dataset.length) applyWatchlistUpdate(p.dataset, p.datasetMeta, false);
       } else {
         showUpdateBanner(p);
       }
@@ -1650,7 +1680,7 @@ function gridFromSheet(workbook, sheetName) {
   return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
 }
 
-function handleFile(event) {
+function handleWatchlistFile(event) {
   const file = event.target.files[0];
   if (!file) return;
   clearError();
@@ -1665,20 +1695,14 @@ function handleFile(event) {
   reader.onload = async function (e) {
     try {
       let watchGrid;
-      let citySummaryGrid = null;
 
       if (isCsv) {
         watchGrid = parseCsv(e.target.result);
       } else {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-        const watchSheetName = findSheetByName(workbook, 'repeat offender watchlist');
-        if (!watchSheetName) {
-          throw new Error('Could not find a "Repeat offender watchlist" sheet in this workbook. Sheets found: ' + workbook.SheetNames.join(', '));
-        }
+        const watchSheetName = findSheetByName(workbook, 'repeat offender watchlist') || workbook.SheetNames[0];
         watchGrid = gridFromSheet(workbook, watchSheetName);
-        const summarySheetName = findSheetByName(workbook, 'city summary');
-        if (summarySheetName) citySummaryGrid = gridFromSheet(workbook, summarySheetName);
       }
 
       if (!watchGrid || watchGrid.length < 3) {
@@ -1698,20 +1722,77 @@ function handleFile(event) {
         return;
       }
 
-      const citySummary = citySummaryGrid ? parseCitySummary(citySummaryGrid) : null;
-
       const meta = buildMeta(new Date());
-      activateDataset(dataset, citySummary, meta, false);
+      applyWatchlistUpdate(dataset, meta, false);
 
       if (PARSE_WARNINGS.length > 0) {
         showError(`Loaded, but ${PARSE_WARNINGS.length} row${PARSE_WARNINGS.length === 1 ? '' : 's'} could not be parsed and were skipped. Details logged to the browser console.`);
       }
 
       statusEl.textContent = 'Saving for everyone…';
-      const saveResult = await postSharedDataset(dataset, citySummary, meta);
+      const saveResult = await postSharedUpdate({ dataset, meta });
       if (saveResult.ok) {
-        LAST_KNOWN_SAVE = meta.uploadedAtISO;
-        statusEl.textContent = `Saved for everyone — last updated ${meta.uploadedAtDisplay}`;
+        LAST_DATASET_SAVE = meta.uploadedAtISO;
+        statusEl.textContent = `Watchlist saved for everyone — updated ${meta.uploadedAtDisplay}`;
+        statusEl.className = 'upload-status ok';
+      } else {
+        statusEl.textContent = `Loaded for you only — could not save to the server: ${saveResult.reason}`;
+        statusEl.className = 'upload-status err';
+      }
+    } catch (err) {
+      showError('Could not parse this file: ' + err.message);
+      statusEl.textContent = 'Upload failed — see message above';
+      statusEl.className = 'upload-status err';
+    }
+  };
+
+  if (isCsv) {
+    reader.readAsText(file);
+  } else {
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function handleCitySummaryFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  clearError();
+
+  const statusEl = document.getElementById('upload-status');
+  statusEl.textContent = 'Parsing ' + file.name + ' (city summary)…';
+  statusEl.className = 'upload-status';
+
+  const isCsv = /\.csv$/i.test(file.name);
+  const reader = new FileReader();
+
+  reader.onload = async function (e) {
+    try {
+      let grid;
+      if (isCsv) {
+        grid = parseCsv(e.target.result);
+      } else {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const sheetName = findSheetByName(workbook, 'city summary') || workbook.SheetNames[0];
+        grid = gridFromSheet(workbook, sheetName);
+      }
+
+      const citySummary = parseCitySummary(grid);
+      if (!Object.keys(citySummary).length) {
+        showError('Could not find "Last week" / "Last 2 weeks" / "Last 4 weeks" section headers in this file — is this the City summary export?');
+        statusEl.textContent = 'Upload failed — see message above';
+        statusEl.className = 'upload-status err';
+        return;
+      }
+
+      const meta = buildMeta(new Date());
+      applyCitySummaryUpdate(citySummary, meta);
+
+      statusEl.textContent = 'Saving city summary for everyone…';
+      const saveResult = await postSharedUpdate({ citySummary, meta });
+      if (saveResult.ok) {
+        LAST_CITY_SUMMARY_SAVE = meta.uploadedAtISO;
+        statusEl.textContent = `City summary saved for everyone — updated ${meta.uploadedAtDisplay}`;
         statusEl.className = 'upload-status ok';
       } else {
         statusEl.textContent = `Loaded for you only — could not save to the server: ${saveResult.reason}`;

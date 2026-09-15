@@ -19,7 +19,10 @@ function readStore() {
   try {
     const raw = fs.readFileSync(DATA_FILE, 'utf8');
     const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.dataset)) return null;
+    // dataset and citySummary are independently-uploaded fields — either
+    // can legitimately be null (e.g. city summary uploaded before any
+    // watchlist ever was), so only reject genuinely malformed content.
+    if (!parsed || typeof parsed !== 'object') return null;
     return parsed;
   } catch (err) {
     if (err.code === 'ENOENT') return null;
