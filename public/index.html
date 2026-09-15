@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Repeat Offender Watchlist — City Dashboards</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    background: #eef1f6;
+    color: #14142b;
+    line-height: 1.5;
+    font-size: 14px;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 80px; }
+
+  /* Topbar */
+  .topbar {
+    background: #14142b;
+    color: #fff;
+    border-radius: 14px;
+    padding: 22px 28px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .topbar .eyebrow { font-size: 12px; color: #8b93b8; margin-bottom: 4px; }
+  .topbar h1 { font-size: 21px; font-weight: 700; margin-bottom: 4px; }
+  .topbar .as-of { font-size: 12px; color: #8b93b8; }
+  .topbar .as-of b { color: #cbd5e1; }
+
+  .upload-block { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .upload-btn {
+    background: #fff; color: #14142b; border: none; border-radius: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .upload-btn:hover { background: #e2e8f0; }
+  .upload-status { font-size: 11.5px; color: #8b93b8; text-align: right; max-width: 280px; }
+  .upload-status.ok { color: #a7f3d0; }
+  .upload-status.err { color: #fca5a5; }
+  #file-input { display: none; }
+
+  /* Empty state */
+  .landing {
+    background: #fff; border: 1px dashed #cbd5e1; border-radius: 14px;
+    padding: 60px 30px; text-align: center; color: #64748b;
+  }
+  .landing h2 { font-size: 17px; color: #14142b; margin-bottom: 8px; }
+  .landing p { font-size: 13.5px; max-width: 480px; margin: 0 auto 18px; }
+  .landing .big-upload-btn {
+    background: #14142b; color: #fff; border: none; border-radius: 9px;
+    padding: 12px 22px; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  }
+  .landing .hint { font-size: 11.5px; color: #94a3b8; margin-top: 14px; }
+  .error-box {
+    background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
+    border-radius: 10px; padding: 14px 18px; font-size: 13px; margin-bottom: 16px; display: none;
+  }
+
+  /* Tabs */
+  .tab-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .tab-btn {
+    background: #fff; border: 1px solid #d6dce6; color: #475569;
+    padding: 7px 13px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+  .tab-btn .tab-count { color: #94a3b8; font-weight: 500; margin-left: 4px; }
+  .tab-btn.active { background: #14142b; color: #fff; border-color: #14142b; }
+  .tab-btn.active .tab-count { color: #a5b4fc; }
+
+  /* Summary strip */
+  .summary-strip {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 15px 20px; margin-bottom: 12px;
+    display: flex; gap: 26px; flex-wrap: wrap;
+  }
+  .summary-stat { display: flex; flex-direction: column; }
+  .summary-stat .big { font-size: 19px; font-weight: 700; color: #14142b; }
+  .summary-stat .small { font-size: 11px; color: #94a3b8; }
+
+  /* Attention banner — the one place we spend the accent color */
+  .attention-banner {
+    border-radius: 10px; padding: 11px 16px; margin-bottom: 12px; font-size: 12.5px;
+  }
+  .attention-banner.hot { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  .attention-banner.calm { background: #f8fafc; border: 1px solid #e2e8f0; color: #64748b; }
+  .attention-banner b { font-weight: 700; }
+
+  .data-gap-note {
+    background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 6px;
+    padding: 10px 14px; font-size: 12.5px; color: #92400e; margin-bottom: 12px;
+  }
+
+  /* Filter bar */
+  .filter-bar {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 12px 16px; margin-bottom: 12px;
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  }
+  .filter-bar input[type="text"] {
+    flex: 1; min-width: 170px; padding: 7px 11px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 13px;
+  }
+  .filter-bar input[type="number"] {
+    width: 62px; padding: 7px 7px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 13px;
+  }
+  .chip-toggle {
+    padding: 5px 11px; border-radius: 20px; border: 1px solid #cbd5e1; background: #f8fafc;
+    font-size: 12px; font-weight: 600; color: #475569; cursor: pointer;
+  }
+  .chip-toggle.on { background: #14142b; color: #fff; border-color: #14142b; }
+  .filter-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-right: 2px; }
+  .preset-btn {
+    background: #14142b; color: #fff; border: none; font-weight: 700;
+    padding: 7px 13px; border-radius: 8px; font-size: 12px; cursor: pointer;
+  }
+  .clear-btn { background: none; border: none; color: #64748b; font-size: 12px; cursor: pointer; text-decoration: underline; }
+  .result-count { font-size: 12px; color: #64748b; margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .result-count a { color: #1d4ed8; text-decoration: none; cursor: pointer; }
+
+  /* Table */
+  .res-table {
+    width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden;
+    border: 1px solid #e2e8f0;
+  }
+  .res-table th {
+    background: #f8fafc; color: #64748b; text-align: left; font-size: 11px; font-weight: 700;
+    padding: 9px 12px; border-bottom: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .res-table th.sortable { cursor: pointer; user-select: none; }
+  .res-table th.sortable:hover { color: #14142b; }
+  .res-table th .arrow { font-size: 9px; margin-left: 2px; color: #cbd5e1; }
+  .res-table th.sorted .arrow { color: #14142b; }
+  .res-table th.group-header {
+    text-align: center; background: #eef1f6; color: #475569; border-bottom: 1px solid #e2e8f0;
+  }
+  .res-table td { padding: 10px 12px; border-bottom: 1px solid #eef1f6; vertical-align: middle; font-size: 13px; }
+  .res-row { cursor: pointer; border-left: 3px solid transparent; }
+  .res-row:hover td { background: #f8fafc; }
+  .res-row.attention { border-left: 3px solid #ef4444; }
+  .num-cell { text-align: center; font-weight: 600; }
+  .res-name { font-weight: 700; font-size: 13.5px; }
+  .res-sub { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+  .issue-cell { max-width: 210px; }
+  .action-cell { max-width: 200px; }
+  .action-primary { font-weight: 700; font-size: 12.5px; }
+  .action-secondary { font-size: 10.5px; color: #94a3b8; margin-top: 2px; }
+  .view-link { color: #1d4ed8; font-weight: 700; font-size: 12.5px; }
+
+  .chip { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 20px; margin: 1px 2px 1px 0; }
+  .priority-badge { font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 6px; background: #f1f5f9; color: #475569; }
+  .priority-badge.p0 { background: #e0e7ff; color: #3730a3; }
+  .priority-badge.p1 { background: #eef2ff; color: #4338ca; }
+
+  .drill-row { display: none; }
+  .drill-row td { background: #f8fafc; padding: 0; border-bottom: 2px solid #e2e8f0; }
+  .drill-content { padding: 15px 18px; }
+  .drill-header { font-size: 12px; color: #475569; margin-bottom: 10px; }
+  .inline-tag { background: #eef1f6; padding: 2px 7px; border-radius: 5px; font-weight: 600; }
+
+  .ticket-list { display: flex; flex-direction: column; gap: 8px; }
+  .ticket-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 11px 13px; }
+  .ticket-card-top { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; }
+  .ticket-id { font-family: 'Cascadia Code', monospace; font-size: 11px; font-weight: 700; color: #334155; }
+  .ticket-date { font-size: 11px; color: #94a3b8; }
+  .ticket-action-label { font-size: 10.5px; font-weight: 700; padding: 3px 7px; border-radius: 20px; }
+  .ticket-link { margin-left: auto; font-size: 11.5px; font-weight: 700; color: #fff; background: #4A154B; padding: 4px 10px; border-radius: 6px; text-decoration: none; }
+  .ticket-link:hover { background: #611f69; }
+  .ticket-link.disabled { background: #cbd5e1; color: #64748b; }
+  .ticket-summary { font-size: 12.5px; color: #475569; margin-bottom: 7px; }
+  .ticket-meta-row { display: flex; gap: 14px; font-size: 11px; color: #64748b; flex-wrap: wrap; }
+
+  .empty-filter-state { text-align: center; padding: 34px; color: #94a3b8; font-size: 13px; }
+
+  footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 22px; }
+
+  #dashboard-body { display: none; }
+
+  @media (max-width: 720px) {
+    .res-table { display: block; overflow-x: auto; white-space: nowrap; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div>
+      <div class="eyebrow">Call Insights &middot; Repeat Offender Watchlist</div>
+      <h1>City-wise Repeat Offender Dashboard</h1>
+      <div class="as-of" id="as-of-line">Loading latest data…</div>
+    </div>
+    <div class="upload-block">
+      <button class="upload-btn" onclick="document.getElementById('file-input').click()">Upload today's export</button>
+      <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onchange="handleFile(event)">
+      <div class="upload-status" id="upload-status">Checking for shared data…</div>
+    </div>
+  </div>
+
+  <div class="error-box" id="error-box"></div>
+
+  <div class="landing" id="landing">
+    <h2 id="landing-title">Upload today's export to populate the dashboard</h2>
+    <p id="landing-text">Export the <b>Repeat offender watchlist</b> sheet as Excel (.xlsx) or CSV and drop it in here.</p>
+    <button class="big-upload-btn" onclick="document.getElementById('file-input').click()">Choose file</button>
+    <div class="hint" id="landing-hint">Once someone uploads, everyone who opens this link sees the same data automatically.</div>
+  </div>
+
+  <div id="dashboard-body">
+    <div class="tab-bar" id="tab-bar"></div>
+    <div id="city-sections"></div>
+    <footer>Repeat Offender Watchlist &middot; ticket links open directly in Slack (#test-call-insights)</footer>
+  </div>
+
+</div>
+
+<script>
+// =====================================================================
+// CSV PARSING — dependency-free, RFC4180-style (handles quoted fields with
+// embedded commas/newlines/escaped quotes). Verified against real export data.
+// Used for .csv uploads; .xlsx uploads go through SheetJS instead (below).
+// =====================================================================
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  let i = 0;
+  const n = text.length;
+
+  while (i < n) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      field += c; i++; continue;
+    }
+    if (c === '"') { inQuotes = true; i++; continue; }
+    if (c === ',') { row.push(field); field = ''; i++; continue; }
+    if (c === '\r') {
+      if (text[i + 1] === '\n') i++;
+      row.push(field); field = ''; rows.push(row); row = []; i++; continue;
+    }
+    if (c === '\n') { row.push(field); field = ''; rows.push(row); row = []; i++; continue; }
+    field += c; i++;
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+  if (rows.length && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === '') rows.pop();
+  return rows;
+}
+
+function findHeaderRowIndex(grid) {
+  for (let i = 0; i < Math.min(grid.length, 10); i++) {
+    if (grid[i] && String(grid[i][0] || '').trim().toLowerCase() === 'res id') return i;
+  }
+  return 1; // fallback: assume one title row above the header, as in the known template
+}
+
+// =====================================================================
+// PARSING LOGIC — ported and verified against the source pipeline
+// =====================================================================
+
+const CAT_COLORS = {
+  'Platform Bypass': ['#fee2e2', '#b91c1c'],
+  'Offline Offer Detected': ['#ffedd5', '#c2410c'],
+  'Offer Denial': ['#fef3c7', '#92400e'],
+  'Competitor Promotion': ['#ede9fe', '#6d28d9'],
+  'Booking Inventory Incorrect': ['#dbeafe', '#1d4ed8'],
+  'Booking Inventory': ['#dbeafe', '#1d4ed8'],
+  'Booking Pax Configuration': ['#dbeafe', '#1d4ed8'],
+  'Offline Cover Charge': ['#dcfce7', '#166534'],
+};
+const DEFAULT_CHIP = ['#f1f5f9', '#475569'];
+
+const BUCKET_COLORS = {
+  no_action:  ['#b91c1c', '#fee2e2'],
+  escalation: ['#c2410c', '#ffedd5'],
+  resolved:   ['#166534', '#dcfce7'],
+  invalid:    ['#64748b', '#f1f5f9'],
+};
+
+function splitByTicket(text) {
+  if (!text) return { map: {}, order: [] };
+  const parts = String(text).split(/\n*---\n*/);
+  const map = {};
+  const order = [];
+  for (const p of parts) {
+    const m = p.trim().match(/^Ticket (CI-[\d-]+):\s*([\s\S]*)$/);
+    if (m) {
+      map[m[1]] = m[2].trim();
+      order.push(m[1]);
+    }
+  }
+  return { map, order };
+}
+
+function parseDateFromCiId(tid) {
+  const m = tid.match(/^CI-(\d{2})(\d{2})(\d{2})-/);
+  if (!m) return null;
+  const [, yy, mm, dd] = m;
+  const d = new Date(2000 + parseInt(yy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10));
+  if (isNaN(d.getTime())) return null;
+  return d;
+}
+
+function fmtDate(d) {
+  if (!d) return null;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function fmtDisplayDateTime(d) {
+  if (!d) return null;
+  return d.toLocaleString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function parseTickets(row, workingDbLookup) {
+  const { map: summaries, order } = splitByTicket(row.summaryRaw);
+  const { map: threads } = splitByTicket(row.threadRaw);
+  const urls = (row.ticketIdsRaw || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
+
+  const tickets = [];
+  order.forEach((tid, i) => {
+    try {
+      const url = urls[i] || null;
+      const wdb = workingDbLookup.get(tid) || {};
+      let dateObj = null;
+      if (wdb.date) {
+        const parsed = new Date(wdb.date);
+        if (!isNaN(parsed.getTime())) dateObj = parsed;
+      }
+      if (!dateObj) dateObj = parseDateFromCiId(tid);
+
+      tickets.push({
+        id: tid,
+        url,
+        summary: summaries[tid] || '',
+        threadRaw: threads[tid] || '',
+        subcat: wdb.subcat || null,
+        validationDecision: wdb.validationDecision || null,
+        actionOwner: wdb.actionOwner || null,
+        correctiveActionWdb: wdb.correctiveAction || null,
+        ticketPriority: wdb.priority || null,
+        date: fmtDate(dateObj),
+        dateObj,
+      });
+    } catch (err) {
+      PARSE_WARNINGS.push(`Ticket ${tid}: ${err.message}`);
+      console.warn('Skipped ticket due to parse error:', tid, err);
+    }
+  });
+  return tickets;
+}
+
+function categorizeAction(t) {
+  const raw = (t.correctiveActionWdb || t.threadRaw || '').trim();
+  const val = raw.toLowerCase();
+  if (!val || val.includes('no corrective action taken') ||
+      ['awaiting action', 'pending action', 'pending button action'].includes(val)) {
+    return { bucket: 'no_action', label: 'No corrective action taken' };
+  }
+  if (['n/a - marked invalid', 'no, not valid', 'not relevant'].includes(val)) {
+    return { bucket: 'invalid', label: raw || 'Marked invalid' };
+  }
+  if (['merchant unresponsive', 'merchant denied updating offer'].includes(val)) {
+    return { bucket: 'escalation', label: raw };
+  }
+  if (['yes, valid', 'awaiting validation'].includes(val)) {
+    return { bucket: 'no_action', label: 'No corrective action taken' };
+  }
+  return { bucket: 'resolved', label: raw };
+}
+
+function buildWorkingDbLookup(wdbRows) {
+  const lookup = new Map();
+  for (const r of wdbRows) {
+    const ciId = r[0];
+    if (!ciId) continue;
+    lookup.set(String(ciId).trim(), {
+      subcat: r[4],
+      date: r[6],
+      validationDecision: r[12],
+      actionOwner: r[13],
+      correctiveAction: r[14],
+      priority: r[25],
+    });
+  }
+  return lookup;
+}
+
+function buildDataset(watchRows, wdbRows) {
+  const workingDbLookup = buildWorkingDbLookup(wdbRows);
+  const restaurants = [];
+  PARSE_WARNINGS = [];
+
+  watchRows.forEach((r, idx) => {
+    if (r[0] === null || r[0] === undefined || r[0] === '') return;
+
+    try {
+      const row = {
+        resId: r[0],
+        resName: r[1],
+        city: (r[2] || '').toString().trim() || 'Unmapped',
+        ulv: r[3] || 'N/A',
+        gmv: toNumber(r[4]),
+        kam: r[5],
+        lifetime: toNumber(r[6]) ?? 0,
+        last4: toNumber(r[7]) ?? 0,
+        last2: toNumber(r[8]) ?? 0,
+        subcatAgg: r[9],
+        ticketIdsRaw: r[10],
+        summaryRaw: r[11],
+        threadRaw: r[12],
+        redemption: r[13],
+        dos: toNumber(r[14]),
+      };
+
+      const tickets = parseTickets(row, workingDbLookup);
+      const statusCounts = { no_action: 0, invalid: 0, escalation: 0, resolved: 0 };
+      const literalByBucket = { resolved: new Set(), escalation: new Set(), invalid: new Set() };
+
+      for (const t of tickets) {
+        const cat = categorizeAction(t);
+        t.actionBucket = cat.bucket;
+        t.actionLabel = cat.label;
+        statusCounts[cat.bucket]++;
+        if (cat.bucket !== 'no_action') literalByBucket[cat.bucket].add(cat.label);
+      }
+
+      let overallStatus;
+      if (statusCounts.no_action > 0) overallStatus = 'no_action';
+      else if (statusCounts.escalation > 0) overallStatus = 'escalation';
+      else if (statusCounts.resolved > 0) overallStatus = 'resolved';
+      else overallStatus = 'invalid';
+
+      restaurants.push({
+        ...row,
+        tickets,
+        statusCounts,
+        overallStatus,
+        literalByBucket: {
+          resolved: Array.from(literalByBucket.resolved),
+          escalation: Array.from(literalByBucket.escalation),
+          invalid: Array.from(literalByBucket.invalid),
+        },
+      });
+    } catch (err) {
+      PARSE_WARNINGS.push(`Row ${idx + 3} (Res ID ${r[0]}): ${err.message}`);
+      console.warn('Skipped watchlist row due to parse error:', r, err);
+    }
+  });
+
+  return restaurants;
+}
+
+// =====================================================================
+// RENDERING
+// =====================================================================
+
+let DATASET = [];
+let CITY_ORDER = [];
+let ACTIVE_CITY = null;
+let FILTERS = { priority: 'all', status: 'all', minFlags: 0, search: '' };
+let SORT = { key: 'default', dir: 'desc' };
+
+let LAST_KNOWN_SAVE = null;
+
+function activateDataset(dataset, meta, preserveViewState) {
+  DATASET = dataset;
+  meta = meta || {};
+
+  const citySet = new Set(DATASET.map(d => d.city));
+  const newCityOrder = Array.from(citySet).sort((a, b) => {
+    if (a === 'Unmapped') return 1;
+    if (b === 'Unmapped') return -1;
+    return DATASET.filter(d => d.city === b).length - DATASET.filter(d => d.city === a).length;
+  });
+
+  const keepView = preserveViewState && ACTIVE_CITY && newCityOrder.some(c => cityIdOf(c) === ACTIVE_CITY);
+  CITY_ORDER = newCityOrder;
+  if (!keepView) {
+    ACTIVE_CITY = cityIdOf(CITY_ORDER[0]);
+    FILTERS = { priority: 'all', status: 'all', minFlags: 0, search: '' };
+    SORT = { key: 'default', dir: 'desc' };
+  }
+
+  buildTabs();
+  buildCitySections();
+  renderCity(CITY_ORDER.find(c => cityIdOf(c) === ACTIVE_CITY) || CITY_ORDER[0]);
+
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('dashboard-body').style.display = 'block';
+
+  const asOfEl = document.getElementById('as-of-line');
+  const updatedStr = meta.uploadedAtDisplay || 'unknown time';
+  asOfEl.innerHTML = `Last updated <b>${esc(updatedStr)}</b> &middot; ${DATASET.length} restaurants across ${CITY_ORDER.length} cities`;
+}
+
+// =====================================================================
+// SHARED PERSISTENCE — a small self-hosted backend (server.js + storage.js)
+// stores the single "current upload" record. Every viewer's tab, including
+// the uploader's, just reads it back from the same place, so everyone on
+// this link sees the same data with no action on their part.
+// =====================================================================
+
+async function fetchSharedDataset() {
+  const res = await fetch('/api/dataset', { cache: 'no-store' });
+  if (!res.ok) throw new Error('Server returned ' + res.status);
+  return res.json();
+}
+
+async function postSharedDataset(dataset, meta) {
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataset, meta }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.ok) {
+    return { ok: false, reason: body.reason || ('server returned ' + res.status) };
+  }
+  return { ok: true };
+}
+
+function showUpdateBanner(payload) {
+  if (document.getElementById('update-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'update-banner';
+  banner.className = 'attention-banner hot';
+  banner.style.position = 'sticky';
+  banner.style.top = '0';
+  banner.style.zIndex = '10';
+  const when = (payload.meta && payload.meta.uploadedAtDisplay) || 'just now';
+  banner.innerHTML = `<b>Newer data is available</b> (uploaded ${esc(when)}) — <a style="cursor:pointer;text-decoration:underline;" onclick="applyPendingUpdate()">refresh now</a>`;
+  const wrap = document.querySelector('.wrap');
+  wrap.insertBefore(banner, wrap.firstChild);
+  window.__pendingUpdate = payload;
+}
+
+function applyPendingUpdate() {
+  const payload = window.__pendingUpdate;
+  if (!payload) return;
+  LAST_KNOWN_SAVE = payload.meta.uploadedAtISO;
+  activateDataset(payload.dataset, payload.meta, true);
+  const banner = document.getElementById('update-banner');
+  if (banner) banner.remove();
+}
+
+const POLL_INTERVAL_MS = 20000;
+
+async function bootstrap() {
+  const statusEl = document.getElementById('upload-status');
+  try {
+    const payload = await fetchSharedDataset();
+    if (payload && payload.dataset && payload.dataset.length > 0) {
+      LAST_KNOWN_SAVE = payload.meta ? payload.meta.uploadedAtISO : null;
+      activateDataset(payload.dataset, payload.meta || {}, false);
+      statusEl.textContent = `Showing shared data — last updated ${payload.meta.uploadedAtDisplay}`;
+      statusEl.className = 'upload-status ok';
+    } else {
+      document.getElementById('as-of-line').textContent = 'No data uploaded yet';
+      statusEl.textContent = 'Nothing uploaded yet — upload the first export to populate this for everyone';
+    }
+  } catch (err) {
+    document.getElementById('as-of-line').textContent = 'Could not reach the dashboard server';
+    statusEl.textContent = 'Could not load shared data: ' + err.message;
+    statusEl.className = 'upload-status err';
+  }
+
+  setInterval(async () => {
+    try {
+      const p = await fetchSharedDataset();
+      if (!p || !p.meta || p.meta.uploadedAtISO === LAST_KNOWN_SAVE) return;
+      const dashboardVisible = document.getElementById('dashboard-body').style.display === 'block';
+      if (!dashboardVisible) {
+        LAST_KNOWN_SAVE = p.meta.uploadedAtISO;
+        activateDataset(p.dataset, p.meta, false);
+      } else {
+        showUpdateBanner(p);
+      }
+    } catch (err) {
+      console.warn('Poll for shared dataset failed:', err);
+    }
+  }, POLL_INTERVAL_MS);
+}
+
+function buildMeta(now) {
+  now = now || new Date();
+  return {
+    uploadedAtDisplay: fmtDisplayDateTime(now),
+    uploadedAtISO: now.toISOString(),
+  };
+}
+
+function toNumber(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') return v;
+  let s = String(v).trim();
+  if (!s) return null;
+  const hadPercent = s.includes('%');
+  s = s.replace(/[%,\s]/g, '');
+  const f = parseFloat(s);
+  if (isNaN(f)) return null;
+  return hadPercent ? f / 100 : f;
+}
+
+let PARSE_WARNINGS = [];
+
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function fmtNum(n) {
+  if (n === null || n === undefined) return '0';
+  const f = Number(n);
+  return Number.isInteger(f) ? String(f) : String(f);
+}
+
+function fmtPct(n, decimals) {
+  decimals = decimals === undefined ? 2 : decimals;
+  if (n === null || n === undefined || n === '') return 'N/A';
+  const f = Number(n);
+  if (isNaN(f)) return 'N/A';
+  return (f * 100).toFixed(decimals) + '%';
+}
+
+function cityIdOf(city) {
+  return city.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function subcatChips(subcatStr) {
+  if (!subcatStr) return '<span class="chip" style="background:#f1f5f9;color:#94a3b8">No subcategory data</span>';
+  const chips = [];
+  subcatStr.split(',').forEach(part => {
+    const m = part.trim().match(/^(.+?)\s*x\s*(\d+)/);
+    if (!m) return;
+    const name = m[1].trim(), n = m[2];
+    const [bg, fg] = CAT_COLORS[name] || DEFAULT_CHIP;
+    chips.push(`<span class="chip" style="background:${bg};color:${fg}">${esc(name)} &times; ${n}</span>`);
+  });
+  return chips.length ? chips.join('') : '<span class="chip" style="background:#f1f5f9;color:#94a3b8">Not classified</span>';
+}
+
+function isAttention(d) {
+  return (d.ulv === 'P0' || d.ulv === 'P1') && (d.last2 || 0) > 0 && d.overallStatus === 'no_action';
+}
+
+function actionCellHtml(d) {
+  const [fg, bg] = BUCKET_COLORS[d.overallStatus];
+  let primaryText;
+  if (d.overallStatus === 'no_action') {
+    primaryText = 'No corrective action taken';
+  } else {
+    primaryText = d.literalByBucket[d.overallStatus].join(', ') || 'Action recorded';
+  }
+  const secondaryParts = [];
+  ['no_action', 'escalation', 'resolved', 'invalid'].forEach(b => {
+    if (b === d.overallStatus) return;
+    if (b === 'no_action' && d.statusCounts.no_action > 0) {
+      secondaryParts.push(`${d.statusCounts.no_action} no corrective action taken`);
+    } else if (b !== 'no_action' && d.literalByBucket[b] && d.literalByBucket[b].length) {
+      secondaryParts.push(d.literalByBucket[b].join(', '));
+    }
+  });
+  const secondary = secondaryParts.length ? `<div class="action-secondary">${esc(secondaryParts.join(' &middot; '))}</div>` : '';
+  return `<div class="action-primary" style="color:${fg}">${esc(primaryText)}</div>${secondary}`;
+}
+
+function ticketCard(t) {
+  const date = t.date || 'Date unknown';
+  const [fg, bg] = BUCKET_COLORS[t.actionBucket];
+  const actionText = t.actionBucket === 'no_action' ? 'No corrective action taken' : t.actionLabel;
+  const url = t.url;
+  const link = url
+    ? `<a class="ticket-link" href="${esc(url)}" target="_blank" rel="noopener">Open ticket &#8599;</a>`
+    : '<span class="ticket-link disabled">No link available</span>';
+  return `
+    <div class="ticket-card">
+      <div class="ticket-card-top">
+        <span class="ticket-id">${esc(t.id)}</span>
+        <span class="ticket-date">${esc(date)}</span>
+        <span class="ticket-action-label" style="background:${bg};color:${fg}">${esc(actionText)}</span>
+        ${link}
+      </div>
+      <p class="ticket-summary">${esc(t.summary)}</p>
+    </div>`;
+}
+
+function priorityBadge(ulv) {
+  const cls = ulv === 'P0' ? 'p0' : (ulv === 'P1' ? 'p1' : '');
+  return `<span class="priority-badge ${cls}">${esc(ulv)}</span>`;
+}
+
+const PRIORITY_RANK = { P0: 0, P1: 1, P2: 2, 'N/A': 3 };
+
+function defaultSortCompare(a, b) {
+  const pr = (PRIORITY_RANK[a.ulv] ?? 3) - (PRIORITY_RANK[b.ulv] ?? 3);
+  if (pr !== 0) return pr;
+  if ((b.last4 || 0) !== (a.last4 || 0)) return (b.last4 || 0) - (a.last4 || 0);
+  if ((b.last2 || 0) !== (a.last2 || 0)) return (b.last2 || 0) - (a.last2 || 0);
+  return (b.gmv || 0) - (a.gmv || 0);
+}
+
+function sortRestaurants(list) {
+  const arr = list.slice();
+  if (SORT.key === 'default') {
+    arr.sort(defaultSortCompare);
+    return arr;
+  }
+  const key = SORT.key;
+  const dir = SORT.dir === 'asc' ? 1 : -1;
+  if (key === 'priority') {
+    arr.sort((a, b) => dir * ((PRIORITY_RANK[a.ulv] ?? 3) - (PRIORITY_RANK[b.ulv] ?? 3)));
+    return arr;
+  }
+  arr.sort((a, b) => dir * ((a[key] || 0) - (b[key] || 0)));
+  return arr;
+}
+
+function buildTabs() {
+  const bar = document.getElementById('tab-bar');
+  bar.innerHTML = CITY_ORDER.map(city => {
+    const cid = cityIdOf(city);
+    const count = DATASET.filter(d => d.city === city).length;
+    const active = cid === ACTIVE_CITY ? ' active' : '';
+    return `<button class="tab-btn${active}" onclick="switchCity('${cid}')">${esc(city)} <span class="tab-count">${count}</span></button>`;
+  }).join('');
+}
+
+function buildCitySections() {
+  const container = document.getElementById('city-sections');
+  container.innerHTML = CITY_ORDER.map(city => {
+    const cid = cityIdOf(city);
+    const display = cid === ACTIVE_CITY ? '' : 'display:none;';
+    return `
+    <section id="city-${cid}" style="${display}">
+      <div class="summary-strip" id="summary-${cid}"></div>
+      <div id="attention-${cid}"></div>
+      <div id="gap-note-${cid}"></div>
+      <div class="filter-bar">
+        <span class="filter-label">Priority</span>
+        <button class="chip-toggle on" data-group="priority" data-value="all" onclick="setFilter('priority','all')">All</button>
+        <button class="chip-toggle" data-group="priority" data-value="P0" onclick="setFilter('priority','P0')">P0</button>
+        <button class="chip-toggle" data-group="priority" data-value="P1" onclick="setFilter('priority','P1')">P1</button>
+        <button class="chip-toggle" data-group="priority" data-value="P2" onclick="setFilter('priority','P2')">P2</button>
+
+        <span class="filter-label">Action</span>
+        <button class="chip-toggle on" data-group="status" data-value="all" onclick="setFilter('status','all')">All</button>
+        <button class="chip-toggle" data-group="status" data-value="no_action" onclick="setFilter('status','no_action')">No action</button>
+        <button class="chip-toggle" data-group="status" data-value="escalation" onclick="setFilter('status','escalation')">Escalation</button>
+        <button class="chip-toggle" data-group="status" data-value="resolved" onclick="setFilter('status','resolved')">Resolved</button>
+
+        <span class="filter-label">Min 4W</span>
+        <input type="number" id="min4w-${cid}" min="0" value="0" oninput="applyFilters()">
+
+        <input type="text" id="search-${cid}" placeholder="Search name, Res ID or issue…" oninput="applyFilters()">
+
+        <button class="preset-btn" onclick="applyPreset()">P0/P1, no action</button>
+        <button class="clear-btn" onclick="clearFilters()">Clear</button>
+      </div>
+      <div class="result-count" id="count-${cid}"></div>
+      <table class="res-table">
+        <thead>
+          <tr>
+            <th rowspan="2" class="sortable" onclick="setSort('priority')" id="th-priority">Priority <span class="arrow">▼</span></th>
+            <th rowspan="2">Restaurant</th>
+            <th rowspan="2" class="sortable" onclick="setSort('gmv')" id="th-gmv">GMV contribution to city <span class="arrow">▼</span></th>
+            <th rowspan="2" class="sortable" onclick="setSort('lifetime')" id="th-lifetime">Lifetime call insights cases flagged <span class="arrow">▼</span></th>
+            <th rowspan="2" class="sortable" onclick="setSort('last4')" id="th-last4">Last 4W call insights cases <span class="arrow">▼</span></th>
+            <th rowspan="2" class="sortable" onclick="setSort('last2')" id="th-last2">Last 2 week call insights <span class="arrow">▼</span></th>
+            <th colspan="3" class="group-header">4 week issues breakdown</th>
+          </tr>
+          <tr>
+            <th>Main issues</th>
+            <th>Corrective action</th>
+            <th>Tickets</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-${cid}"></tbody>
+      </table>
+      <div class="empty-filter-state" id="empty-${cid}" style="display:none;">No restaurants match the current filters in this city.</div>
+    </section>`;
+  }).join('');
+}
+
+function renderSummary(city) {
+  const cid = cityIdOf(city);
+  const items = DATASET.filter(d => d.city === city);
+  const nRes = items.length;
+  const sum4 = items.reduce((s, d) => s + (d.last4 || 0), 0);
+  const p0 = items.filter(d => d.ulv === 'P0').length;
+  const p1 = items.filter(d => d.ulv === 'P1').length;
+  const flagged2w = items.filter(d => (d.last2 || 0) > 0).length;
+  const gmvAgg = items.reduce((s, d) => s + (d.gmv || 0), 0);
+
+  document.getElementById('summary-' + cid).innerHTML = `
+    <div class="summary-stat"><span class="big">${nRes}</span><span class="small">repeat offenders</span></div>
+    <div class="summary-stat"><span class="big">${sum4}</span><span class="small">flagged cases, last 4 wks</span></div>
+    <div class="summary-stat"><span class="big">${p0}</span><span class="small">P0 accounts</span></div>
+    <div class="summary-stat"><span class="big">${p1}</span><span class="small">P1 accounts</span></div>
+    <div class="summary-stat"><span class="big">${flagged2w}</span><span class="small">flagged in last 2 wks</span></div>
+    <div class="summary-stat"><span class="big">${fmtPct(gmvAgg)}</span><span class="small">aggregate GMV contribution</span></div>
+  `;
+
+  const attention = items.filter(isAttention);
+  const attEl = document.getElementById('attention-' + cid);
+  if (attention.length > 0) {
+    const names = attention.slice(0, 5).map(d => esc(d.resName)).join(', ');
+    const more = attention.length > 5 ? ` +${attention.length - 5} more` : '';
+    attEl.innerHTML = `<div class="attention-banner hot"><b>${attention.length} account${attention.length === 1 ? '' : 's'} need attention now</b> — P0/P1, flagged again in the last 2 weeks, nothing actioned yet: ${names}${more}</div>`;
+  } else {
+    attEl.innerHTML = `<div class="attention-banner calm">No P0/P1 accounts with unresolved recent flags in ${esc(city)} right now.</div>`;
+  }
+
+  const gapEl = document.getElementById('gap-note-' + cid);
+  gapEl.innerHTML = (city === 'Unmapped')
+    ? `<div class="data-gap-note">These restaurants are missing city / GMV / KAM / priority data in the source sheet. Showing as-is rather than fabricating values.</div>`
+    : '';
+}
+
+function renderRows(city) {
+  const cid = cityIdOf(city);
+  let items = DATASET.filter(d => d.city === city);
+
+  if (FILTERS.priority === 'P0P1') {
+    items = items.filter(d => d.ulv === 'P0' || d.ulv === 'P1');
+  } else if (FILTERS.priority !== 'all') {
+    items = items.filter(d => d.ulv === FILTERS.priority);
+  }
+  if (FILTERS.status !== 'all') {
+    items = items.filter(d => d.overallStatus === FILTERS.status);
+  }
+  const minFlagsInput = document.getElementById('min4w-' + cid);
+  const minFlags = minFlagsInput ? parseInt(minFlagsInput.value || '0', 10) : 0;
+  items = items.filter(d => (d.last4 || 0) >= minFlags);
+
+  const searchInput = document.getElementById('search-' + cid);
+  const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  if (q) {
+    items = items.filter(d => {
+      const hay = (d.resName + ' ' + d.resId + ' ' + (d.subcatAgg || '')).toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  items = sortRestaurants(items);
+
+  const tbody = document.getElementById('tbody-' + cid);
+  let rowsHtml = '';
+  items.forEach((d, idx) => {
+    const rowId = cid + '-' + d.resId;
+    const attentionClass = isAttention(d) ? ' attention' : '';
+    const ticketBlocks = d.tickets.map(ticketCard).join('');
+    rowsHtml += `
+      <tr class="res-row${attentionClass}" onclick="toggleDrill('${rowId}')">
+        <td>${priorityBadge(d.ulv)}</td>
+        <td>
+          <div class="res-name">${esc(d.resName)}</div>
+          <div class="res-sub">Res ID ${esc(d.resId)} &middot; KAM ${esc(d.kam || 'Unassigned')}</div>
+        </td>
+        <td class="num-cell">${fmtPct(d.gmv)}</td>
+        <td class="num-cell">${fmtNum(d.lifetime)}</td>
+        <td class="num-cell">${fmtNum(d.last4)}</td>
+        <td class="num-cell">${fmtNum(d.last2)}</td>
+        <td class="issue-cell">${subcatChips(d.subcatAgg)}</td>
+        <td class="action-cell">${actionCellHtml(d)}</td>
+        <td><span class="view-link">View ${d.tickets.length} &rsaquo;</span></td>
+      </tr>
+      <tr class="drill-row" id="drill-${rowId}">
+        <td colspan="9">
+          <div class="drill-content">
+            <div class="drill-header">
+              <strong>${esc(d.resName)}</strong> &middot; ${d.tickets.length} ticket${d.tickets.length === 1 ? '' : 's'} in this window
+              &middot; Redemption vs subzone: <span class="inline-tag">${esc(d.redemption || 'N/A')}</span>
+              &middot; DOS cases (2wk): <span class="inline-tag">${fmtNum(d.dos)}</span>
+            </div>
+            <div class="ticket-list">${ticketBlocks}</div>
+          </div>
+        </td>
+      </tr>`;
+  });
+  tbody.innerHTML = rowsHtml;
+
+  document.getElementById('empty-' + cid).style.display = items.length === 0 ? 'block' : 'none';
+  const total = DATASET.filter(d => d.city === city).length;
+  document.getElementById('count-' + cid).innerHTML =
+    `<span>${items.length} of ${total} restaurants shown</span>` +
+    (SORT.key !== 'default' ? `<a onclick="resetSort()">Reset sort to Priority → 4W → 2W → GMV</a>` : '<span></span>');
+
+  updateSortHeaderStyles();
+}
+
+function updateSortHeaderStyles() {
+  const map = { priority: 'th-priority', gmv: 'th-gmv', lifetime: 'th-lifetime', last4: 'th-last4', last2: 'th-last2' };
+  Object.entries(map).forEach(([key, id]) => {
+    document.querySelectorAll('#' + id).forEach(th => {
+      const isSorted = SORT.key === key;
+      th.classList.toggle('sorted', isSorted);
+      const arrow = th.querySelector('.arrow');
+      if (arrow) arrow.textContent = isSorted ? (SORT.dir === 'asc' ? '▲' : '▼') : '▼';
+    });
+  });
+}
+
+function renderCity(city) {
+  renderSummary(city);
+  renderRows(city);
+}
+
+function switchCity(cid) {
+  ACTIVE_CITY = cid;
+  document.querySelectorAll('#city-sections > section').forEach(s => {
+    s.style.display = (s.id === 'city-' + cid) ? '' : 'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const city = CITY_ORDER.find(c => cityIdOf(c) === cid);
+  const idx = CITY_ORDER.findIndex(c => cityIdOf(c) === cid);
+  const btns = document.querySelectorAll('.tab-btn');
+  if (btns[idx]) btns[idx].classList.add('active');
+  renderCity(city);
+}
+
+function setFilter(group, value) {
+  FILTERS[group] = value;
+  document.querySelectorAll('.chip-toggle[data-group="' + group + '"]').forEach(b => {
+    b.classList.toggle('on', b.dataset.value === value);
+  });
+  applyFilters();
+}
+
+function applyPreset() {
+  FILTERS.status = 'no_action';
+  FILTERS.priority = 'P0P1';
+  document.querySelectorAll('.chip-toggle[data-group="status"]').forEach(b => b.classList.toggle('on', b.dataset.value === 'no_action'));
+  document.querySelectorAll('.chip-toggle[data-group="priority"]').forEach(b => b.classList.remove('on'));
+  const search = document.getElementById('search-' + ACTIVE_CITY);
+  const min4w = document.getElementById('min4w-' + ACTIVE_CITY);
+  if (search) search.value = '';
+  if (min4w) min4w.value = 0;
+  applyFilters();
+}
+
+function clearFilters() {
+  FILTERS = { priority: 'all', status: 'all', minFlags: 0, search: '' };
+  const search = document.getElementById('search-' + ACTIVE_CITY);
+  const min4w = document.getElementById('min4w-' + ACTIVE_CITY);
+  if (search) search.value = '';
+  if (min4w) min4w.value = 0;
+  document.querySelectorAll('.chip-toggle[data-group="priority"]').forEach(b => b.classList.toggle('on', b.dataset.value === 'all'));
+  document.querySelectorAll('.chip-toggle[data-group="status"]').forEach(b => b.classList.toggle('on', b.dataset.value === 'all'));
+  applyFilters();
+}
+
+function applyFilters() {
+  const city = CITY_ORDER.find(c => cityIdOf(c) === ACTIVE_CITY);
+  renderRows(city);
+}
+
+function setSort(key) {
+  if (SORT.key === key) {
+    SORT.dir = SORT.dir === 'desc' ? 'asc' : 'desc';
+  } else {
+    SORT.key = key;
+    SORT.dir = 'desc';
+  }
+  applyFilters();
+}
+
+function resetSort() {
+  SORT = { key: 'default', dir: 'desc' };
+  applyFilters();
+}
+
+function toggleDrill(rowId) {
+  const el = document.getElementById('drill-' + rowId);
+  el.style.display = (el.style.display === 'table-row') ? 'none' : 'table-row';
+}
+
+// =====================================================================
+// FILE HANDLING
+// =====================================================================
+
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+function clearError() {
+  document.getElementById('error-box').style.display = 'none';
+}
+
+function gridFromWorkbook(workbook) {
+  const wantedName = 'repeat offender watchlist';
+  const sheetName = workbook.SheetNames.find(n => n.trim().toLowerCase() === wantedName)
+    || workbook.SheetNames.find(n => n.trim().toLowerCase().startsWith(wantedName));
+  if (!sheetName) {
+    throw new Error('Could not find a "Repeat offender watchlist" sheet in this workbook. Sheets found: ' + workbook.SheetNames.join(', '));
+  }
+  const sheet = workbook.Sheets[sheetName];
+  // Deliberately NOT using raw:false here — that option formats percentage
+  // cells (like GMV) as display text (e.g. "0.42%") instead of the real
+  // number (0.0042), which breaks downstream math. Leave it as raw values;
+  // toNumber() below still defensively handles either shape regardless.
+  return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+}
+
+function handleFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  clearError();
+
+  const statusEl = document.getElementById('upload-status');
+  statusEl.textContent = 'Parsing ' + file.name + '…';
+  statusEl.className = 'upload-status';
+
+  const isCsv = /\.csv$/i.test(file.name);
+  const reader = new FileReader();
+
+  reader.onload = async function (e) {
+    try {
+      let grid;
+      if (isCsv) {
+        grid = parseCsv(e.target.result);
+      } else {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        grid = gridFromWorkbook(workbook);
+      }
+
+      if (!grid || grid.length < 3) {
+        showError('This file only has ' + (grid ? grid.length : 0) + ' row(s) — expected the Repeat offender watchlist export with a header row and restaurant rows below it.');
+        statusEl.textContent = 'Upload failed — see message above';
+        statusEl.className = 'upload-status err';
+        return;
+      }
+
+      const headerIdx = findHeaderRowIndex(grid);
+      const dataset = buildDataset(grid.slice(headerIdx + 1), []);
+
+      if (dataset.length === 0) {
+        showError('The file parsed, but no restaurant rows were found. Double check this is the "Repeat offender watchlist" export, with Res ID in the first column.');
+        statusEl.textContent = 'Upload failed — see message above';
+        statusEl.className = 'upload-status err';
+        return;
+      }
+
+      const meta = buildMeta(new Date());
+      activateDataset(dataset, meta, false);
+
+      if (PARSE_WARNINGS.length > 0) {
+        showError(`Loaded, but ${PARSE_WARNINGS.length} row${PARSE_WARNINGS.length === 1 ? '' : 's'} could not be parsed and were skipped. Details logged to the browser console.`);
+      }
+
+      statusEl.textContent = 'Saving for everyone…';
+      const saveResult = await postSharedDataset(dataset, meta);
+      if (saveResult.ok) {
+        LAST_KNOWN_SAVE = meta.uploadedAtISO;
+        statusEl.textContent = `Saved for everyone — last updated ${meta.uploadedAtDisplay}`;
+        statusEl.className = 'upload-status ok';
+      } else {
+        statusEl.textContent = `Loaded for you only — could not save to the server: ${saveResult.reason}`;
+        statusEl.className = 'upload-status err';
+      }
+    } catch (err) {
+      showError('Could not parse this file: ' + err.message);
+      statusEl.textContent = 'Upload failed — see message above';
+      statusEl.className = 'upload-status err';
+    }
+  };
+
+  if (isCsv) {
+    reader.readAsText(file);
+  } else {
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+bootstrap();
+</script>
+</body>
+</html>
