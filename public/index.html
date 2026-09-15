@@ -1607,9 +1607,14 @@ function renderCityBreakdownTab() {
     </div>
 
     <div class="card">
-      <h3>Cases by city</h3>
-      <div class="card-sub">${esc(CITY_WINDOW)} &middot; blue = Top 11 named cities, aqua = Emerging.</div>
-      <div id="chart-city-cases"></div>
+      <h3>Cases by city — issue mix</h3>
+      <div class="card-sub">${esc(CITY_WINDOW)} &middot; colored by issue category &middot; white line = Actioned %.</div>
+      <div id="chart-city-issues"></div>
+    </div>
+    <div class="card">
+      <h3>Corrective action mix by city</h3>
+      <div class="card-sub">${esc(CITY_WINDOW)} &middot; share of actioned cases by corrective action.</div>
+      <div id="chart-city-actions"></div>
     </div>
 
     <div class="filter-bar">
@@ -1647,9 +1652,39 @@ function renderCityBreakdownTab() {
     </table>
   `;
 
-  renderHBarList('chart-city-cases', chartRows.map(r => ({ label: r.city, value: r.cases })), {
-    colorFn: it => cityTier(it.label) === 'top' ? 'var(--blue)' : 'var(--aqua)',
-  });
+  const splitCats = Object.keys((chartRows[0] || {}).splits || {});
+  const mixCats = Object.keys((chartRows[0] || {}).mix || {});
+  renderCityStackedChart('chart-city-issues', chartRows, splitCats, r => r.splits, { showLine: true });
+  renderCityStackedChart('chart-city-actions', chartRows, mixCats, r => Object.fromEntries(Object.entries(r.mix || {}).map(([k, v]) => [k, v || 0])), { isPercent: true, max: 1 });
+}
+
+// Vertical bars, one per city, split into colored segments per category —
+// used for both the issue-mix chart (with an Actioned% line overlay) and
+// the corrective-action-mix chart (percentages, so a fixed 0-100% scale).
+function renderCityStackedChart(id, rows, cats, valuesFn, opts) {
+  opts = opts || {};
+  const height = opts.height || 200;
+  const max = opts.max || Math.max(1, ...rows.map(r => cats.reduce((s, c) => s + (valuesFn(r)[c] || 0), 0)));
+  const fmt = v => opts.isPercent ? Math.round(v * 100) + '%' : String(v);
+  const barsHtml = rows.map((r, i) => {
+    const vals = valuesFn(r);
+    const total = cats.reduce((s, c) => s + (vals[c] || 0), 0);
+    const segs = cats.filter(c => vals[c] > 0).map(c =>
+      `<div class="stack-seg" style="height:${(vals[c] / max * height)}px;background:${catColorHex(c)}" data-tooltip="${esc(r.city)} — ${esc(c)}: ${fmt(vals[c])}"></div>`
+    ).join('');
+    return `<div class="bar-col-wrap"><div class="bar-total-label">${fmt(total)}</div><div class="bar-col" style="height:${height}px;">${segs}</div><div class="bar-col-label">${esc(r.city)}</div></div>`;
+  }).join('');
+  const usedCats = cats.filter(c => rows.some(r => (valuesFn(r)[c] || 0) > 0));
+  let legend = usedCats.map(c => `<span class="chart-legend-item"><span class="legend-dot" style="background:${catColorHex(c)}"></span>${esc(c)}</span>`).join('');
+  let lineHtml = '';
+  if (opts.showLine) {
+    const pt = i => `${((i + 0.5) / rows.length * 100).toFixed(2)},${(100 - (rows[i].actionedPct || 0) * 100).toFixed(2)}`;
+    const pts = rows.map((r, i) => pt(i)).join(' ');
+    const dots = rows.map((r, i) => { const [x, y] = pt(i).split(','); return `<circle cx="${x}" cy="${y}" r="1.4" fill="#fff"/>`; }).join('');
+    lineHtml = `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;left:0;right:0;top:0;height:${height}px;width:100%;pointer-events:none;"><polyline points="${pts}" fill="none" stroke="#fff" stroke-width="1.5" vector-effect="non-scaling-stroke"/>${dots}</svg>`;
+    legend += `<span class="chart-legend-item"><span class="legend-dot" style="background:#fff"></span>Actioned %</span>`;
+  }
+  document.getElementById(id).innerHTML = `<div class="chart-plot" style="height:${height}px;position:relative;"><div class="chart-bars" style="border-left:none;padding-left:0;">${barsHtml}</div>${lineHtml}</div><div class="chart-legend">${legend}</div>`;
 }
 
 // =====================================================================
