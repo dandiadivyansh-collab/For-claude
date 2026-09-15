@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: rw-atlas-portal
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: DASHBOARD_USER
+        value: zomato
+      - key: DASHBOARD_PASSWORD
+        generateValue: true

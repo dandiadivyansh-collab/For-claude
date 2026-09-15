@@ -1,15 +1,23 @@
 const path = require('path');
 const express = require('express');
 const { readStore, writeStore } = require('./storage');
+const { basicAuthGate } = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-// Org security policy: always bind to localhost, never all interfaces.
-// Put a reverse proxy in front of this for anyone outside this machine to
-// reach the dashboard link.
+// Default stays localhost-only for local dev. On a platform like Render, the
+// app has to bind 0.0.0.0 inside its own isolated container for the
+// platform's edge/router to reach it at all — that override is set
+// explicitly in render.yaml, not defaulted here.
 const HOST = process.env.HOST || '127.0.0.1';
 
+const authEnabled = Boolean(process.env.DASHBOARD_USER && process.env.DASHBOARD_PASSWORD);
+if (!authEnabled) {
+  console.warn('WARNING: DASHBOARD_USER/DASHBOARD_PASSWORD not set — running with no access gate. Set both before exposing this beyond your own machine.');
+}
+
 app.use(express.json({ limit: '25mb' })); // watchlist exports can carry long ticket summary text
+app.use(basicAuthGate());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/dataset', (req, res) => {
@@ -37,4 +45,5 @@ app.post('/api/upload', (req, res) => {
 
 app.listen(PORT, HOST, () => {
   console.log(`Repeat Offender Watchlist dashboard listening on http://${HOST}:${PORT}`);
+  console.log('Dataset is stored on local disk (storage.js). On a host without a persistent disk, a redeploy or restart can wipe it — if the dashboard unexpectedly shows "No data uploaded yet," that\'s why; just re-upload.');
 });
