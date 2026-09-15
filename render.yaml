@@ -11,4 +11,4 @@ services:
       - key: DASHBOARD_USER
         value: zomato
       - key: DASHBOARD_PASSWORD
-        generateValue: true
+        value: password
